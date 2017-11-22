@@ -10,9 +10,18 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.InstallCallbackInterface;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
+    static {
+        System.loadLibrary("opencv_java3");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +35,12 @@ public class MainActivity extends AppCompatActivity {
                     .replace(R.id.frame_layout,CameraFragment.newInstance())
                     .commit();
         }
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
     }
 
 

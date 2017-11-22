@@ -6,20 +6,21 @@
     android:orientation="vertical"
     tools:context="cn.scut.dongxia.hazeremove.CameraFragment">
 
-    <!--<LinearLayout-->
-        <!--android:layout_width="match_parent"-->
-        <!--android:layout_height="0dp"-->
-        <!--android:layout_weight="1"-->
-        <!--android:background="@android:color/black">-->
-        <!--<cn.scut.dongxia.hazeremove.AutoFitTextureView-->
-            <!--android:id="@+id/texture"-->
-            <!--android:layout_width="match_parent"-->
-            <!--android:layout_height="wrap_content"/>-->
-    <!--</LinearLayout>-->
-    <ImageView
-        android:id="@+id/image_view"
-        android:layout_width="400dp"
-        android:layout_height="600dp" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@android:color/black">
+        <cn.scut.dongxia.hazeremove.AutoFitTextureView
+            android:id="@+id/texture"
+            android:layout_width="400dp"
+            android:layout_height="600dp"/>
+    </LinearLayout>
+
+    <!--<ImageView-->
+        <!--android:id="@+id/image_view"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content" />-->
 
     <LinearLayout
         android:id="@+id/control_layout"

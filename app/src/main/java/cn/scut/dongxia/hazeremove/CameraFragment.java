@@ -16,6 +16,7 @@ import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
 import android.graphics.drawable.BitmapDrawable;
+import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -28,6 +29,7 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,6 +41,7 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -111,9 +114,9 @@ public class CameraFragment extends Fragment{
     }
 
     private void initView(View view){
-//        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
-//        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-        
+        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
+        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+
 //        mImageView = (ImageView) view.findViewById(R.id.image_view);
     }
 
@@ -152,12 +155,13 @@ public class CameraFragment extends Fragment{
         // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
         // a camera and start preview from here (otherwise, we wait until the surface is ready in
         // the SurfaceTextureListener).
-//        if (mTextureView.isAvailable()){
-//            openCamera(mCameraId);
-//        }else {
-//            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-//        }
-        openCamera(mCameraId);
+        if (mTextureView.isAvailable()){
+            openCamera(mCameraId);
+        }else {
+            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        }
+//        openCamera(mCameraId);
+
     }
 
     @Override
@@ -189,6 +193,14 @@ public class CameraFragment extends Fragment{
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surface) {
             Log.d(TAG, "onSurfaceTextureUpdated: ");
+            final Bitmap bitmap = mTextureView.getBitmap();
+
+//            getActivity().runOnUiThread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    mImageView.setImageBitmap(bitmap);
+//                }
+//            });
         }
     };
 
@@ -246,7 +258,6 @@ public class CameraFragment extends Fragment{
         } catch (CameraAccessException e){
             e.printStackTrace();
         }
-
     }
 
     /**
@@ -285,19 +296,18 @@ public class CameraFragment extends Fragment{
     private void createCameraPreviewSession(){
         try {
 
-//            SurfaceTexture texture = mTextureView.getSurfaceTexture();
-//            assert texture != null;
-//
-//            texture.setDefaultBufferSize(mImageReader.getWidth(),mImageReader.getHeight());
-//
-//            Surface surface = new Surface(texture);
+            SurfaceTexture texture = mTextureView.getSurfaceTexture();
+            assert texture != null;
+
+            texture.setDefaultBufferSize(mImageReader.getWidth(),mImageReader.getHeight());
+
+            Surface surface = new Surface(texture);
 
             mPreviewRequestBuilder
                     = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             mPreviewRequestBuilder.addTarget(mImageReader.getSurface());
-//            mPreviewRequestBuilder.addTarget(surface);
-
-            mCameraDevice.createCaptureSession(Arrays.asList(mImageReader.getSurface()),
+            mPreviewRequestBuilder.addTarget(surface);
+            mCameraDevice.createCaptureSession(Arrays.asList(surface,mImageReader.getSurface()),
                     mCameraCaptureSessionStateCallback,mBackgroundHandler);
         }catch (CameraAccessException e){
 
@@ -460,19 +470,19 @@ public class CameraFragment extends Fragment{
         @Override
         public void onCaptureStarted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, long timestamp, long frameNumber) {
             super.onCaptureStarted(session, request, timestamp, frameNumber);
-//            Log.d(TAG, "onCaptureStarted: ");
+            Log.d(TAG, "onCaptureStarted: ");
         }
 
         @Override
         public void onCaptureProgressed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
             super.onCaptureProgressed(session, request, partialResult);
-//            Log.d(TAG, "onCaptureProgressed: ");
+            Log.d(TAG, "onCaptureProgressed: ");
         }
 
         @Override
         public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
             super.onCaptureCompleted(session, request, result);
-//            Log.d(TAG, "onCaptureCompleted: ");
+            Log.d(TAG, "onCaptureCompleted: ");
         }
     };
 
