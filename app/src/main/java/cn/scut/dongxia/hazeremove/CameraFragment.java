@@ -7,29 +7,17 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
-import android.graphics.PixelFormat;
+import android.graphics.Matrix;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
-import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
-import android.hardware.camera2.TotalCaptureResult;
-import android.hardware.camera2.params.StreamConfigurationMap;
-import android.media.Image;
-import android.media.ImageReader;
-import android.media.ImageWriter;
-import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,18 +27,25 @@ import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.util.Size;
+import android.util.SparseIntArray;
 import android.view.LayoutInflater;
 import android.view.Surface;
-import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
+
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.util.List;
+
+import dehaze.DarkChannel;
+import dehaze.DeHaze;
 
 public class CameraFragment extends Fragment{
     private static final String TAG = "CameraFragment";
@@ -59,12 +54,23 @@ public class CameraFragment extends Fragment{
 
     private static final String FRAGMENT_DIALOG = "dialog";
 
+    private static final SparseIntArray SCREEN_ORIENTATIONS = new SparseIntArray();
+
+    static {
+        SCREEN_ORIENTATIONS.append(Surface.ROTATION_0, 0);
+        SCREEN_ORIENTATIONS.append(Surface.ROTATION_90, 90);
+        SCREEN_ORIENTATIONS.append(Surface.ROTATION_180, 180);
+        SCREEN_ORIENTATIONS.append(Surface.ROTATION_270, 270);
+    }
+
+    private static final int PREVIEW_WIDTH = 640;
+
+    private static final int PREVIEW_HEIGHT = 480;
+
     /**
      * An {@link AutoFitTextureView} for camera preview.
      */
     private AutoFitTextureView mTextureView;
-
-    private ImageView mImageView;
 
     private HandlerThread mBackgroundThread;
 
@@ -74,9 +80,9 @@ public class CameraFragment extends Fragment{
         return new CameraFragment();
     }
 
-    private int cameraId;
+    private int mCameraId;
 
-    private Camera camera;
+    private Camera mCamera;
 
     @Override
     public void onAttach(Context context) {
@@ -101,11 +107,10 @@ public class CameraFragment extends Fragment{
         initView(view);
     }
 
-    private void initView(View view){
-        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
-        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
 
-        mImageView = (ImageView) view.findViewById(R.id.image_view);
+    @Override
+    public void onStart() {
+        super.onStart();
     }
 
     @Override
@@ -116,96 +121,62 @@ public class CameraFragment extends Fragment{
         // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
         // a camera and start preview from here (otherwise, we wait until the surface is ready in
         // the SurfaceTextureListener).
-        int cameraNum = Camera.getNumberOfCameras();
-        for (int cameraId = 0; cameraId< cameraNum; cameraId++){
-            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-
-            Camera.getCameraInfo(cameraId,cameraInfo);
-
-            if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
-                this.cameraId = cameraId;
-                break;
-            }
-        }
-
-        camera = Camera.open(cameraId);
-//        Camera.Parameters parameters = camera.getParameters();
-//        parameters.setPreviewSize(400,600);
-//        camera.setParameters(parameters);
-
-//        SurfaceView surfaceView = new SurfaceView(getContext());
-//        try {
-//            camera.setPreviewDisplay(surfaceView.getHolder());
-//        }catch (IOException e){
-//            e.printStackTrace();
-//        }
-        
-        camera.setPreviewCallback(new Camera.PreviewCallback() {
-            @Override
-            public void onPreviewFrame(byte[] data, Camera camera) {
-                Log.d(TAG, "onPreviewFrame: ");
-                Camera.Size size = camera.getParameters().getPreviewSize();
-
-                YuvImage yuvImage = new YuvImage(data,ImageFormat.NV21,size.width,size.height,null);
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                yuvImage.compressToJpeg(new Rect(0,0,yuvImage.getWidth(),yuvImage.getHeight()),100,outputStream);
-                byte[] rawImage = outputStream.toByteArray();
-
-                BitmapFactory.Options options = new BitmapFactory.Options();
-//                options.inJustDecodeBounds = true;
-//                options.inPreferredConfig = Bitmap.Config.RGB_565;
-
-                Bitmap bitmap = BitmapFactory.decodeByteArray(rawImage,0,rawImage.length,options);
-                Log.d(TAG, "onPreviewFrame: " + "width: " + bitmap.getWidth() + " height: " + bitmap.getHeight());
-
-                mImageView.setImageBitmap(bitmap);
-            }
-        });
-//        camera.startPreview();
-
         if (mTextureView.isAvailable()){
-
+            openCamera(PREVIEW_WIDTH,PREVIEW_HEIGHT);
         }else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
-
     }
 
     @Override
     public void onPause() {
         Log.d(TAG, "onPause: ");
         super.onPause();
-
+        closeCamera();
         stopBackgroundThread();
     }
 
+    @Override
+    public void onStop() {
+        super.onStop();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+
+    private void initView(View view){
+        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
+        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        mTextureView.setAspectRatio(PREVIEW_WIDTH,PREVIEW_HEIGHT);
+    }
+
+    private SurfaceTexture mSurfaceTexture;
     TextureView.SurfaceTextureListener mSurfaceTextureListener =
             new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             Log.d(TAG, "onSurfaceTextureAvailable: ");
 
-            try {
-                camera.setPreviewTexture(surface);
-//                camera.setPreviewDisplay(surfaceView.getHolder());
-            }catch (IOException e){
-                e.printStackTrace();
-            }
-            Camera.Parameters parameters = camera.getParameters();
-            parameters.setPreviewSize(400,600);
-            parameters.setPreviewFpsRange(20,30);
-            parameters.setPictureSize(400,600);
-
-            camera.startPreview();
+            openCamera(PREVIEW_WIDTH,PREVIEW_HEIGHT);
         }
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
             Log.d(TAG, "onSurfaceTextureSizeChanged: ");
+            closeCamera();
+            openCamera(PREVIEW_WIDTH,PREVIEW_HEIGHT);
         }
 
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            closeCamera();
             return false;
         }
 
@@ -231,6 +202,132 @@ public class CameraFragment extends Fragment{
             e.printStackTrace();
         }
 
+    }
+
+    /**
+    *  打开指定摄像头
+     * @param previewWidth 预览图像的宽度
+     * @param previewHeight 预览图像的高度
+    * */
+    private void openCamera(int previewWidth, int previewHeight){
+        //判断是否有摄像头权限
+        if (!checkCameraPermission()){
+            requestCameraPermission();
+            return;
+        }
+
+        int cameraNum = Camera.getNumberOfCameras();
+
+        for (int cameraId = 0; cameraId < cameraNum; cameraId++){
+            Camera.CameraInfo info = new Camera.CameraInfo();
+            Camera.getCameraInfo(cameraId,info);
+            if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
+                mCameraId = cameraId;
+                break;
+            }
+        }
+
+        //打开摄像头
+        mCamera = Camera.open(mCameraId);
+
+        //调整摄像头预览输出方向
+        adjustCameraOrientation();
+
+        //设置摄像头预览输出大小
+        setUpCameraPreviewSize(previewWidth,previewHeight);
+
+        //设置预览回调
+        mCamera.setPreviewCallback(mPreviewCallback);
+
+        //设置预览输出
+        mSurfaceTexture = new SurfaceTexture(1);
+        try {
+            mCamera.setPreviewTexture(mSurfaceTexture);
+//            mCamera.setPreviewTexture(mTextureView.getSurfaceTexture());
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+
+        //开始预览
+        mCamera.startPreview();
+    }
+
+    private void closeCamera(){
+        if (mCamera != null){
+            mCamera.setPreviewCallback(null);
+            mCamera.stopPreview();
+            mCamera.release();
+            mCamera = null;
+        }
+    }
+
+    /**
+     * 调整摄像头方向
+     */
+    private void adjustCameraOrientation(){
+        //获取当前屏幕方向
+        int displayRotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        int degrees = 0;
+        switch (displayRotation) {
+            case Surface.ROTATION_0: degrees = 0; break;
+            case Surface.ROTATION_90: degrees = 90; break;
+            case Surface.ROTATION_180: degrees = 180; break;
+            case Surface.ROTATION_270: degrees = 270; break;
+        }
+
+        //获取摄像头方向
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        Camera.getCameraInfo(mCameraId,cameraInfo);
+        //摄像头的方向
+        int cameraOrientation = cameraInfo.orientation;
+
+        //如果屏幕方向和摄像头方向不同，调整摄像头方向
+        int result;
+        if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            result = (cameraOrientation + degrees) % 360;
+            result = (360 - result) % 360;  // compensate the mirror
+        } else {  // back-facing
+            result = (cameraOrientation - degrees + 360) % 360;
+        }
+        //注意，旋转角度并不会影响获取的可预览大小数据
+        mCamera.setDisplayOrientation(result);
+    }
+
+    /**
+     * 调整摄像头方向
+     * 当摄像头支持期待的预览大小：设置预览图像输出大小为期待的预览大小
+     * 当摄像头不支持期待的预览大小但支持和期待的预览大小相同的长宽比
+     * ：设置预览图像输出大小为与期待的预览大小最接近且长宽比相同的预览大小
+     * 当摄像头不支持期待的预览大小且不支持和期待的预览大小相同的长宽比
+     * ：
+     */
+    private void setUpCameraPreviewSize(int previewWidth, int previewHeight){
+        //获取屏幕尺寸
+        Point displaySize = new Point();
+        getActivity().getWindowManager().getDefaultDisplay().getSize(displaySize);
+
+
+        //获取摄像头可选预览尺寸
+        Camera.Parameters parameters = mCamera.getParameters();
+        List<Camera.Size> sizeList = parameters.getSupportedPreviewSizes();
+
+        //根据屏幕尺寸和摄像头可选预览尺寸设置预览大小
+        int displayHeight = displaySize.y;
+        int displayWidth = displaySize.x;
+        Camera.Size previewSize = null;
+
+        //case 1
+        for (Camera.Size size : sizeList){
+            if (size.width == previewWidth && size.height == previewHeight){
+                previewSize = size;
+                break;
+            }
+        }
+
+        if (previewSize != null){
+            parameters.setPreviewSize(previewSize.width,previewSize.height);
+        }
+        mCamera.setParameters(parameters);
     }
 
     /**
@@ -324,4 +421,46 @@ public class CameraFragment extends Fragment{
         }
     }
 
+
+    Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
+        @Override
+        public void onPreviewFrame(byte[] data, Camera camera) {
+            Camera.Size size = camera.getParameters().getPreviewSize();
+
+            YuvImage yuvImage = new YuvImage(data,ImageFormat.NV21,size.width,size.height,null);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            yuvImage.compressToJpeg(new Rect(0,0,yuvImage.getWidth(),yuvImage.getHeight()),100,outputStream);
+            byte[] rawImage = outputStream.toByteArray();
+
+            Bitmap bitmap = BitmapFactory.decodeByteArray(rawImage,0,rawImage.length);
+            Log.d(TAG, "onPreviewFrame: " + "width: " + bitmap.getWidth() + " height: " + bitmap.getHeight());
+
+            //去雾处理
+            //TODO
+            Mat dest = new Mat();
+            Utils.bitmapToMat(bitmap,dest);
+            dest = new DeHaze(15,0.1,0.95,10E-6).imageHazeRemove(dest);
+
+            bitmap = Bitmap.createBitmap(dest.width(),dest.height(),Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(dest,bitmap);
+
+            int height = mTextureView.getHeight();
+            int width = mTextureView.getWidth();
+            Matrix matrix = new Matrix();
+            matrix.postScale(width*1.0f/bitmap.getWidth(),height*1.0f/bitmap.getHeight());
+            bitmap = Bitmap.createBitmap(bitmap,0,0,bitmap.getWidth(),bitmap.getHeight(),matrix,false);
+
+            Canvas canvas = mTextureView.lockCanvas();
+//            canvas.drawBitmap(bitmap,matrix,null);
+                canvas.drawBitmap(bitmap,0,0,null);
+            mTextureView.unlockCanvasAndPost(canvas);
+        }
+    };
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        Log.d(TAG, "onConfigurationChanged: ");
+    }
 }

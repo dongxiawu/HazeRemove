@@ -2,6 +2,7 @@ package cn.scut.dongxia.hazeremove;
 
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.ImageFormat;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -32,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (null == savedInstanceState){
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.frame_layout,CameraFragment.newInstance())
+                    .replace(R.id.frame_layout, ImageFragment.newInstance())
                     .commit();
         }
     }
@@ -45,6 +46,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void initView(){
-
     }
+
 }
