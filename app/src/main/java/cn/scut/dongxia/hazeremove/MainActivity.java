@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (null == savedInstanceState){
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.frame_layout, ImageFragment.newInstance())
+                    .replace(R.id.frame_layout, CameraFragment.newInstance())
                     .commit();
         }
     }

@@ -21,6 +21,12 @@ import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicResize;
+import android.renderscript.ScriptIntrinsicYuvToRGB;
+import android.renderscript.Type;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
@@ -46,6 +52,9 @@ import java.util.List;
 
 import dehaze.DarkChannel;
 import dehaze.DeHaze;
+import dehaze.HazeRemove;
+import dehaze.ImageHazeRemove;
+import dehaze.VideoHazeRemove;
 
 public class CameraFragment extends Fragment{
     private static final String TAG = "CameraFragment";
@@ -84,6 +93,15 @@ public class CameraFragment extends Fragment{
 
     private Camera mCamera;
 
+    private HazeRemove hazeRemove;
+
+
+    private RenderScript renderScript;
+    private ScriptIntrinsicYuvToRGB yuvToRGB;
+
+    private Type.Builder yuvType,rgbaType;
+    private Allocation in, out;
+
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
@@ -92,6 +110,9 @@ public class CameraFragment extends Fragment{
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        renderScript = RenderScript.create(getContext());
+        yuvToRGB = ScriptIntrinsicYuvToRGB
+                .create(renderScript, Element.U8_4(renderScript));
     }
 
     @Nullable
@@ -126,6 +147,7 @@ public class CameraFragment extends Fragment{
         }else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
+        hazeRemove = new VideoHazeRemove(15,0.1,0.95,10E-6, 20);
     }
 
     @Override
@@ -134,6 +156,7 @@ public class CameraFragment extends Fragment{
         super.onPause();
         closeCamera();
         stopBackgroundThread();
+        hazeRemove = null;
     }
 
     @Override
@@ -149,6 +172,7 @@ public class CameraFragment extends Fragment{
     @Override
     public void onDestroy() {
         super.onDestroy();
+        renderScript.destroy();
     }
 
     private void initView(View view){
@@ -425,24 +449,47 @@ public class CameraFragment extends Fragment{
     Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
         @Override
         public void onPreviewFrame(byte[] data, Camera camera) {
+            long start = System.currentTimeMillis();
             Camera.Size size = camera.getParameters().getPreviewSize();
+            if (yuvType == null){
+                yuvType = new Type.Builder(renderScript, Element.U8(renderScript)).setX(data.length);
+                in = Allocation.createTyped(renderScript,yuvType.create(),Allocation.USAGE_SCRIPT);
 
-            YuvImage yuvImage = new YuvImage(data,ImageFormat.NV21,size.width,size.height,null);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            yuvImage.compressToJpeg(new Rect(0,0,yuvImage.getWidth(),yuvImage.getHeight()),100,outputStream);
-            byte[] rawImage = outputStream.toByteArray();
+                rgbaType = new Type.Builder(renderScript, Element.RGBA_8888(renderScript))
+                        .setX(size.width).setY(size.height);
+                out = Allocation.createTyped(renderScript,rgbaType.create(),Allocation.USAGE_SCRIPT);
+            }
 
-            Bitmap bitmap = BitmapFactory.decodeByteArray(rawImage,0,rawImage.length);
+            in.copyFrom(data);
+
+            yuvToRGB.setInput(in);
+            yuvToRGB.forEach(out);
+
+            Bitmap bitmap = Bitmap.createBitmap(size.width,size.height, Bitmap.Config.ARGB_8888);
+            out.copyTo(bitmap);
+
+//            long start = System.currentTimeMillis();
+//            YuvImage yuvImage = new YuvImage(data,ImageFormat.NV21,size.width,size.height,null);
+//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//            yuvImage.compressToJpeg(new Rect(0,0,yuvImage.getWidth(),yuvImage.getHeight()),100,outputStream);
+//            byte[] rawImage = outputStream.toByteArray();
+//
+//            Bitmap bitmap = BitmapFactory.decodeByteArray(rawImage,0,rawImage.length);
+
             Log.d(TAG, "onPreviewFrame: " + "width: " + bitmap.getWidth() + " height: " + bitmap.getHeight());
+            long stop = System.currentTimeMillis();
+            Log.d(TAG, "将数据流转换成 bitmap 耗时：" + (stop - start) + " ms");
 
             //去雾处理
             //TODO
+            start = System.currentTimeMillis();
             Mat dest = new Mat();
             Utils.bitmapToMat(bitmap,dest);
-            dest = new DeHaze(15,0.1,0.95,10E-6).imageHazeRemove(dest);
+            dest = hazeRemove.process(dest);
 
             bitmap = Bitmap.createBitmap(dest.width(),dest.height(),Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(dest,bitmap);
+
 
             int height = mTextureView.getHeight();
             int width = mTextureView.getWidth();
@@ -450,10 +497,13 @@ public class CameraFragment extends Fragment{
             matrix.postScale(width*1.0f/bitmap.getWidth(),height*1.0f/bitmap.getHeight());
             bitmap = Bitmap.createBitmap(bitmap,0,0,bitmap.getWidth(),bitmap.getHeight(),matrix,false);
 
+            stop = System.currentTimeMillis();
+            Log.d(TAG, "处理图像并转换成 bitmap 并放大 耗时：" + (stop - start) + " ms");
+
             Canvas canvas = mTextureView.lockCanvas();
-//            canvas.drawBitmap(bitmap,matrix,null);
                 canvas.drawBitmap(bitmap,0,0,null);
             mTextureView.unlockCanvasAndPost(canvas);
+
         }
     };
 

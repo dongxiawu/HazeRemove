@@ -1,5 +1,7 @@
 package dehaze;
 
+import android.support.annotation.NonNull;
+
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -9,13 +11,18 @@ import java.util.Vector;
 
 /**
  * Created by dongxia on 17-11-23.
+ * 计算最小值通道和暗通道的工具类
  */
 
 public class DarkChannel {
 
-    public static Mat calcMinChannel(Mat src){
-
-        assert (!src.empty());
+    /**
+     * 计算最小值通道
+     * @param src 待处理图像,不能为空
+     *
+     * @return 最小值图像
+     */
+    public static Mat calcMinChannel(@NonNull Mat src){
 
         Vector<Mat> channels = new Vector<>();
 
@@ -29,7 +36,14 @@ public class DarkChannel {
         return minChannel;
     }
 
-    public static Mat calcDarkChannel(Mat src, int r){
+    /**
+     * 计算暗通道
+     * @param src 待处理图像,不能为空
+     * @param r 计算半径
+     *
+     * @return 暗通道图像
+     */
+    public static Mat calcDarkChannel(@NonNull Mat src, int r){
         Mat minChannel = calcMinChannel(src);
 
         Mat kernel = Imgproc.getStructuringElement(

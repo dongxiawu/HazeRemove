@@ -7,12 +7,17 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.SurfaceTexture;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -29,14 +34,18 @@ import dehaze.ImageHazeRemove;
 
 
 public class ImageFragment extends Fragment {
-
+    private static final String TAG = "ImageFragment";
+    
+    
     private static final int SELECT_PHOTO = 1;
 
     private Button mSelect;
 
     private Button mProcess;
 
-    private ImageView mImageView;
+//    private ImageView mImageView;
+
+    private TextureView mTextureView;
 
     private TextView mTimeText;
 
@@ -64,13 +73,32 @@ public class ImageFragment extends Fragment {
         initView(view);
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        if (!mTextureView.isAvailable()){
+            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mTextureView.setSurfaceTextureListener(null);
+    }
+
     private void initView(View root){
         mSelect = (Button) root.findViewById(R.id.select_button);
         mSelect.setOnClickListener(mOnClickListener);
         mProcess = (Button) root.findViewById(R.id.process_button);
         mProcess.setOnClickListener(mOnClickListener);
-        mImageView = (ImageView) root.findViewById(R.id.image_view);
+
         mTimeText = (TextView) root.findViewById(R.id.time_text);
+        mTextureView = (TextureView) root.findViewById(R.id.texture);
+        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        retriever.getFrameAtTime();
     }
 
     View.OnClickListener mOnClickListener = new View.OnClickListener() {
@@ -96,7 +124,10 @@ public class ImageFragment extends Fragment {
                                 getActivity().runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        mImageView.setImageBitmap(mBitmap);
+                                        Canvas canvas = mTextureView.lockCanvas();
+                                        canvas.drawBitmap(mBitmap,0,0,null);
+                                        mTextureView.unlockCanvasAndPost(canvas);
+//                                        mImageView.setImageBitmap(mBitmap);
                                         mTimeText.setText((stop - start) + " ms");
                                     }
                                 });
@@ -127,7 +158,13 @@ public class ImageFragment extends Fragment {
                     Uri uri = data.getData();
                     try {
                         mBitmap = MediaStore.Images.Media.getBitmap(resolver,uri);
-                        mImageView.setImageBitmap(mBitmap);
+                        if (mTextureView.isAvailable()){
+                            Canvas canvas = mTextureView.lockCanvas();
+                            canvas.drawBitmap(mBitmap,0,0,null);
+                            mTextureView.unlockCanvasAndPost(canvas);
+                        }
+
+//                        mImageView.setImageBitmap(mBitmap);
                     } catch (IOException e){
                         e.printStackTrace();
                     }
@@ -136,5 +173,32 @@ public class ImageFragment extends Fragment {
                 default:break;
         }
     }
+
+    TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+            Log.d(TAG, "onSurfaceTextureAvailable: ");
+            if (mBitmap != null){
+                Canvas canvas = mTextureView.lockCanvas();
+                canvas.drawBitmap(mBitmap,0,0,null);
+                mTextureView.unlockCanvasAndPost(canvas);
+            }
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            return false;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+
+        }
+    };
 
 }

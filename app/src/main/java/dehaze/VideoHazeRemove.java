@@ -1,5 +1,7 @@
 package dehaze;
 
+import android.support.annotation.NonNull;
+
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 
@@ -7,7 +9,7 @@ import org.opencv.core.Scalar;
  * Created by dongxia on 17-11-28.
  */
 
-public class VideoHazeRemove extends HazeRemove {
+public class VideoHazeRemove extends ImageHazeRemove {
     private static final String TAG = "VideoHazeRemove";
 
     private int fps;
@@ -21,15 +23,24 @@ public class VideoHazeRemove extends HazeRemove {
     }
 
     @Override
-    protected Scalar estimateAtmosphericLight(Mat I) {
-        if (curFrame % (2*fps) == 0){
-            return super.estimateAtmosphericLight(I);
+    Scalar estimateAtmosphericLight() {
+        if (curFrame%(fps*2) != 1){
+            return atmosphericLight;
         }
-        return atmosphericLight;
+        return super.estimateAtmosphericLight();
     }
 
     @Override
-    public Mat process(Mat origI) {
+    Mat estimateTransmission() {
+        if (curFrame%(fps*2) != 1){
+            return transmission;
+        }
+
+        return super.estimateTransmission();
+    }
+
+    @Override
+    public Mat process(@NonNull Mat origI) {
         curFrame++;
         return super.process(origI);
     }
