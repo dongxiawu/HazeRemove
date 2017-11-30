@@ -4,82 +4,74 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.DialogFragment;
+import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
-import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.preference.PreferenceManager;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicResize;
 import android.renderscript.ScriptIntrinsicYuvToRGB;
 import android.renderscript.Type;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
-import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.TextView;
 
 import org.opencv.android.Utils;
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.imgproc.Imgproc;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-import dehaze.DarkChannel;
-import dehaze.DeHaze;
 import dehaze.HazeRemove;
-import dehaze.ImageHazeRemove;
 import dehaze.VideoHazeRemove;
 
-public class CameraFragment extends Fragment{
+public class CameraFragment extends Fragment {
     private static final String TAG = "CameraFragment";
 
     private static final int REQUEST_CAMERA_PERMISSION = 1;
 
     private static final String FRAGMENT_DIALOG = "dialog";
 
-    private static final SparseIntArray SCREEN_ORIENTATIONS = new SparseIntArray();
-
-    static {
-        SCREEN_ORIENTATIONS.append(Surface.ROTATION_0, 0);
-        SCREEN_ORIENTATIONS.append(Surface.ROTATION_90, 90);
-        SCREEN_ORIENTATIONS.append(Surface.ROTATION_180, 180);
-        SCREEN_ORIENTATIONS.append(Surface.ROTATION_270, 270);
-    }
-
     private static final int PREVIEW_WIDTH = 640;
 
     private static final int PREVIEW_HEIGHT = 480;
 
+    //Widgets
     /**
      * An {@link AutoFitTextureView} for camera preview.
      */
     private AutoFitTextureView mTextureView;
+
+    private ImageButton mTakePhotoButton;
+
+    private ImageButton mImageVideoChangeButton;
+
+    private ImageButton mSettingsButton;
+
+    private TextView mTestMode;
 
     private HandlerThread mBackgroundThread;
 
@@ -95,6 +87,13 @@ public class CameraFragment extends Fragment{
 
     private HazeRemove hazeRemove;
 
+    private boolean isHazeRemoveMode;
+
+    private boolean isImageMode;
+
+    private boolean isRecording;
+
+    private SharedPreferences mSharedPreferences;
 
     private RenderScript renderScript;
     private ScriptIntrinsicYuvToRGB yuvToRGB;
@@ -132,6 +131,8 @@ public class CameraFragment extends Fragment{
     @Override
     public void onStart() {
         super.onStart();
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
+        isHazeRemoveMode = mSharedPreferences.getBoolean("auto_haze_remove",false);
     }
 
     @Override
@@ -162,6 +163,8 @@ public class CameraFragment extends Fragment{
     @Override
     public void onStop() {
         super.onStop();
+
+        mSharedPreferences = null;
     }
 
     @Override
@@ -175,10 +178,20 @@ public class CameraFragment extends Fragment{
         renderScript.destroy();
     }
 
-    private void initView(View view){
-        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
+    private void initView(View root){
+        mTextureView = (AutoFitTextureView) root.findViewById(R.id.texture);
         mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         mTextureView.setAspectRatio(PREVIEW_WIDTH,PREVIEW_HEIGHT);
+
+        mTakePhotoButton = (ImageButton) root.findViewById(R.id.take_photo_button);
+        mTakePhotoButton.setOnClickListener(mOnClickListener);
+        mImageVideoChangeButton = (ImageButton) root.findViewById(R.id.image_video_change_button);
+        mImageVideoChangeButton.setOnClickListener(mOnClickListener);
+        mSettingsButton = (ImageButton) root.findViewById(R.id.settings_button);
+        mSettingsButton.setOnClickListener(mOnClickListener);
+
+        mTestMode = (TextView) root.findViewById(R.id.test_mode);
+        mTestMode.setOnClickListener(mOnClickListener);
     }
 
     private SurfaceTexture mSurfaceTexture;
@@ -513,4 +526,43 @@ public class CameraFragment extends Fragment{
 
         Log.d(TAG, "onConfigurationChanged: ");
     }
+
+
+    View.OnClickListener mOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()){
+                case R.id.take_photo_button:
+                    if (isImageMode){
+
+                    }else {
+                        if (isRecording){
+
+                        }else {
+
+                        }
+                    }
+                    break;
+                case R.id.image_video_change_button:
+                    if (isImageMode){
+                        mImageVideoChangeButton
+                                .setImageResource(R.drawable.ic_camera_alt_white_36dp);
+                    }else {
+                        mImageVideoChangeButton
+                                .setImageResource(R.drawable.ic_videocam_white_36dp);
+                    }
+                    isImageMode = !isImageMode;
+                    break;
+                case R.id.settings_button:
+                    getFragmentManager().beginTransaction().addToBackStack(CameraFragment.class.getName())
+                            .replace(R.id.frame_layout,SettingsFragment.newInstance()).commit();
+                    break;
+                case R.id.test_mode:
+                    getFragmentManager().beginTransaction().addToBackStack(CameraFragment.class.getName())
+                            .replace(R.id.frame_layout,ImageFragment.newInstance()).commit();
+                    break;
+                default:break;
+            }
+        }
+    };
 }

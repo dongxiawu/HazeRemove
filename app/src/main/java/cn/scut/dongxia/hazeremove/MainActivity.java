@@ -29,23 +29,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        initView();
-
         if (null == savedInstanceState){
-            getSupportFragmentManager().beginTransaction()
+            getFragmentManager().beginTransaction()
                     .replace(R.id.frame_layout, CameraFragment.newInstance())
                     .commit();
         }
-    }
-
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-
-    private void initView(){
     }
 
 }

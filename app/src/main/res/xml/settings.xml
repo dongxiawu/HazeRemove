@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:id="@+id/auto_haze_remove"
+        android:key="auto_haze_remove"
+        android:title="自动去雾"/>
+
+    <SwitchPreference
+        android:id="@+id/show_fps"
+        android:key="show_fps"
+        android:title="显示帧率"/>
+
+    <EditTextPreference
+        android:id="@+id/filter_radius"
+        android:title="滤波半径"
+        android:key="filter_radius"
+        android:numeric="integer"
+        android:defaultValue="7"/>
+
+</PreferenceScreen>
