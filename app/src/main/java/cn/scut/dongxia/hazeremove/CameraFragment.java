@@ -30,7 +30,6 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
-import android.util.SparseIntArray;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.TextureView;
@@ -40,7 +39,9 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.JavaCameraView;
 import org.opencv.android.Utils;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import java.io.IOException;
@@ -73,6 +74,8 @@ public class CameraFragment extends Fragment {
     private ImageButton mSettingsButton;
 
     private TextView mTestMode;
+
+    private CameraBridgeViewBase mCameraView;
 
     private HandlerThread mBackgroundThread;
 
@@ -110,9 +113,9 @@ public class CameraFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        renderScript = RenderScript.create(getContext());
-        yuvToRGB = ScriptIntrinsicYuvToRGB
-                .create(renderScript, Element.U8_4(renderScript));
+//        renderScript = RenderScript.create(getContext());
+//        yuvToRGB = ScriptIntrinsicYuvToRGB
+//                .create(renderScript, Element.U8_4(renderScript));
     }
 
     @Nullable
@@ -133,32 +136,36 @@ public class CameraFragment extends Fragment {
     public void onStart() {
         super.onStart();
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-        isHazeRemoveMode = mSharedPreferences.getBoolean("auto_haze_remove",false);
+//        isHazeRemoveMode = mSharedPreferences.getBoolean("auto_haze_remove",false);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        startBackgroundThread();
+//        startBackgroundThread();
         // When the screen is turned off and turned back on, the SurfaceTexture is already
         // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
         // a camera and start preview from here (otherwise, we wait until the surface is ready in
         // the SurfaceTextureListener).
-        if (mTextureView.isAvailable()){
-            openCamera(PREVIEW_WIDTH,PREVIEW_HEIGHT);
-        }else {
-            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-        }
-        hazeRemove = new VideoHazeRemove(15,0.1,0.95,10E-6, 20);
+//        if (mTextureView.isAvailable()){
+//            openCamera(PREVIEW_WIDTH,PREVIEW_HEIGHT);
+//        }else {
+//            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+//        }
+//        hazeRemove = new VideoHazeRemove(15,0.1,0.95,10E-6, 20);
+        mCameraView.setMaxFrameSize(640,480);
+        mCameraView.enableView();
     }
 
     @Override
     public void onPause() {
         Log.d(TAG, "onPause: ");
         super.onPause();
-        closeCamera();
-        stopBackgroundThread();
-        hazeRemove = null;
+//        closeCamera();
+//        stopBackgroundThread();
+//        hazeRemove = null;
+        mCameraView.disableView();
+        mCameraView.enableFpsMeter();
     }
 
     @Override
@@ -176,23 +183,25 @@ public class CameraFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        renderScript.destroy();
+//        renderScript.destroy();
     }
 
     private void initView(View root){
-        mTextureView = (AutoFitTextureView) root.findViewById(R.id.texture);
-        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-        mTextureView.setAspectRatio(PREVIEW_WIDTH,PREVIEW_HEIGHT);
+//        mTextureView = (AutoFitTextureView) root.findViewById(R.id.texture);
+//        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+//        mTextureView.setAspectRatio(PREVIEW_WIDTH,PREVIEW_HEIGHT);
 
-        mTakePhotoButton = (ImageButton) root.findViewById(R.id.take_photo_button);
-        mTakePhotoButton.setOnClickListener(mOnClickListener);
-        mImageVideoChangeButton = (ImageButton) root.findViewById(R.id.image_video_change_button);
-        mImageVideoChangeButton.setOnClickListener(mOnClickListener);
-        mSettingsButton = (ImageButton) root.findViewById(R.id.settings_button);
-        mSettingsButton.setOnClickListener(mOnClickListener);
-
-        mTestMode = (TextView) root.findViewById(R.id.test_mode);
-        mTestMode.setOnClickListener(mOnClickListener);
+//        mTakePhotoButton = (ImageButton) root.findViewById(R.id.take_photo_button);
+//        mTakePhotoButton.setOnClickListener(mOnClickListener);
+//        mImageVideoChangeButton = (ImageButton) root.findViewById(R.id.image_video_change_button);
+//        mImageVideoChangeButton.setOnClickListener(mOnClickListener);
+//        mSettingsButton = (ImageButton) root.findViewById(R.id.settings_button);
+//        mSettingsButton.setOnClickListener(mOnClickListener);
+//
+//        mTestMode = (TextView) root.findViewById(R.id.test_mode);
+//        mTestMode.setOnClickListener(mOnClickListener);
+        mCameraView = (JavaCameraView) root.findViewById(R.id.camera_view);
+        mCameraView.setCvCameraViewListener(mCameraViewListener);
     }
 
     private SurfaceTexture mSurfaceTexture;
@@ -565,4 +574,30 @@ public class CameraFragment extends Fragment {
             }
         }
     };
+
+
+    private Mat mRgba;
+    CameraBridgeViewBase.CvCameraViewListener2 mCameraViewListener = new CameraBridgeViewBase.CvCameraViewListener2() {
+        @Override
+        public void onCameraViewStarted(int width, int height) {
+            mRgba = new Mat(height, width, CvType.CV_8UC4);
+        }
+
+        @Override
+        public void onCameraViewStopped() {
+            mRgba.release();
+        }
+
+        @Override
+        public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+            long start = System.currentTimeMillis();
+            mRgba = inputFrame.rgba();
+            nativeProcessFrame(mRgba.getNativeObjAddr());
+            long stop = System.currentTimeMillis();
+            Log.d(TAG, "耗时： " + (stop - start) + " ms");
+            return mRgba;
+        }
+    };
+
+    public native void nativeProcessFrame(long matAddrRgba);
 }

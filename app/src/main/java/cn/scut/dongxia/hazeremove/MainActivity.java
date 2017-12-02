@@ -22,6 +22,7 @@ public class MainActivity extends AppCompatActivity {
 
     static {
         System.loadLibrary("opencv_java3");
+        System.loadLibrary("dehaze-lib");
     }
 
     @Override

@@ -6,10 +6,15 @@
     android:background="@android:color/black"
     tools:context="cn.scut.dongxia.hazeremove.CameraFragment">
 
-    <cn.scut.dongxia.hazeremove.AutoFitTextureView
-        android:id="@+id/texture"
+    <org.opencv.android.JavaCameraView
+        android:id="@+id/camera_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="match_parent"
+        android:layout_alignParentStart="true"/>
+    <!--<cn.scut.dongxia.hazeremove.AutoFitTextureView-->
+        <!--android:id="@+id/texture"-->
+        <!--android:layout_width="match_parent"-->
+        <!--android:layout_height="wrap_content" />-->
 
     <RelativeLayout
         android:layout_width="160dp"

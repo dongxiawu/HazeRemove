@@ -9,6 +9,8 @@ int judgeFileType(string fileName);
 //评价图像
 void calcEvaluatingIndicator(const Mat& src);
 
+
+
 int main(int argc, char *argv[]) {
 
 //    传入参数没有图片信息，退出

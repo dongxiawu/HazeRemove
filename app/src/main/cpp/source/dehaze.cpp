@@ -93,13 +93,25 @@ DeHaze::DeHaze(int r, double t0, double omega, double eps) : r(r), t0(t0), omega
 
 cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
 {
-    CV_Assert(I.channels() == 3);
+//    CV_Assert(I.channels() == 3);
     if (I.depth() != CV_32F){
         I.convertTo(this->I, CV_32F,1.0/255.0);
     }
+    double start = clock();
     estimateAtmosphericLight();
+    double stop = clock();
+    LOGD("估计大气光耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
+    start = clock();
     estimateTransmission();
-    return recover();
+    stop = clock();
+    LOGD("计算透射率耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
+    start = clock();
+    Mat recoverImg = recover();
+    stop = clock();
+    LOGD("恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+    return recoverImg;
 }
 
 cv::Mat DeHaze::videoHazeRemove(const cv::Mat& I){
@@ -158,7 +170,7 @@ cv::Mat DeHaze::estimateTransmission(){
 
     double start = clock();
 
-    CV_Assert(I.channels() == 3);
+//    CV_Assert(I.channels() == 3);
     vector<Mat> channels;
     split(I,channels);
 
@@ -251,7 +263,7 @@ cv::Mat DeHaze::recover(){
 
     double start = clock();
 
-    CV_Assert(I.channels() == 3 && I.depth() == CV_32F);
+//    CV_Assert(I.channels() == 3 && I.depth() == CV_32F);
     vector<Mat> channels;
     split(I,channels);
 
@@ -266,7 +278,7 @@ cv::Mat DeHaze::recover(){
     merge(channels,recover);
 
     pow(recover,0.7,recover);//3ms gamma矫正
-    recover.convertTo(recover,CV_8UC3,255);
+    recover.convertTo(recover,CV_8U,255);
 
     double stop = clock();
 
