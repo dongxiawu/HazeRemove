@@ -39,6 +39,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
 
@@ -352,7 +353,6 @@ public class CameraFragment extends Fragment {
         int displayHeight = displaySize.y;
         int displayWidth = displaySize.x;
         Camera.Size previewSize = null;
-
         //case 1
         for (Camera.Size size : sizeList){
             if (size.width == previewWidth && size.height == previewHeight){
