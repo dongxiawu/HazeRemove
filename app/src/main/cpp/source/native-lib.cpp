@@ -22,5 +22,4 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProc
 
     DeHaze deHaze(7,0.1,0.95,10E-6);
     mRgb = deHaze.imageHazeRemove(mRgb);
-    LOGD("ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss");
 }

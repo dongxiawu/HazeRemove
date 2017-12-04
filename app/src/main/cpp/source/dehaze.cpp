@@ -9,79 +9,6 @@
 using namespace cv;
 using namespace std;
 
-double getPSNR(const Mat& I1, const Mat& I2)
-{
-    Mat s1;
-    absdiff(I1, I2, s1);       // |I1 - I2|
-    s1.convertTo(s1, CV_32F);  // cannot make a square on 8 bits
-    s1 = s1.mul(s1);           // |I1 - I2|^2
-
-    Scalar s = sum(s1);         // sum elements per channel
-
-    double sse = s.val[0] + s.val[1] + s.val[2]; // sum channels
-
-    if( sse <= 1e-10) // for small values return zero
-        return 0;
-    else
-    {
-        double  mse =sse /(double)(I1.channels() * I1.total());
-        double psnr = 10.0*log10((255*255)/mse);
-        return psnr;
-    }
-}
-
-Scalar getMSSIM( const Mat& i1, const Mat& i2)
-{
-    const double C1 = 6.5025, C2 = 58.5225;
-    /***************************** INITS **********************************/
-    int d     = CV_32F;
-
-    Mat I1, I2;
-    i1.convertTo(I1, d);           // cannot calculate on one byte large values
-    i2.convertTo(I2, d);
-
-    Mat I2_2   = I2.mul(I2);        // I2^2
-    Mat I1_2   = I1.mul(I1);        // I1^2
-    Mat I1_I2  = I1.mul(I2);        // I1 * I2
-
-    /*************************** END INITS **********************************/
-
-    Mat mu1, mu2;   // PRELIMINARY COMPUTING
-    GaussianBlur(I1, mu1, Size(11, 11), 1.5);
-    GaussianBlur(I2, mu2, Size(11, 11), 1.5);
-
-    Mat mu1_2   =   mu1.mul(mu1);
-    Mat mu2_2   =   mu2.mul(mu2);
-    Mat mu1_mu2 =   mu1.mul(mu2);
-
-    Mat sigma1_2, sigma2_2, sigma12;
-
-    GaussianBlur(I1_2, sigma1_2, Size(11, 11), 1.5);
-    sigma1_2 -= mu1_2;
-
-    GaussianBlur(I2_2, sigma2_2, Size(11, 11), 1.5);
-    sigma2_2 -= mu2_2;
-
-    GaussianBlur(I1_I2, sigma12, Size(11, 11), 1.5);
-    sigma12 -= mu1_mu2;
-
-    ///////////////////////////////// FORMULA ////////////////////////////////
-    Mat t1, t2, t3;
-
-    t1 = 2 * mu1_mu2 + C1;
-    t2 = 2 * sigma12 + C2;
-    t3 = t1.mul(t2);              // t3 = ((2*mu1_mu2 + C1).*(2*sigma12 + C2))
-
-    t1 = mu1_2 + mu2_2 + C1;
-    t2 = sigma1_2 + sigma2_2 + C2;
-    t1 = t1.mul(t2);               // t1 =((mu1_2 + mu2_2 + C1).*(sigma1_2 + sigma2_2 + C2))
-
-    Mat ssim_map;
-    divide(t3, t1, ssim_map);      // ssim_map =  t3./t1;
-
-    Scalar mssim = mean( ssim_map ); // mssim = average of ssim map
-    return mssim;
-}
 
 void DeHaze::setFPS(int fps){
     this->fps = fps;
@@ -89,6 +16,16 @@ void DeHaze::setFPS(int fps){
 
 DeHaze::DeHaze(int r, double t0, double omega, double eps) : r(r), t0(t0), omega(omega), eps(eps)
 {
+    for( int i = 0; i < 256; i++ )
+    {
+        look_up_table[i] = saturate_cast<uchar>(pow((float)(i/255.0), 0.7) * 255.0f);
+    }
+    lookUpTable = Mat(1, 256, CV_8U);
+    uchar* p = lookUpTable.ptr();
+    for( int i = 0; i < 256; ++i){
+        p[i] = look_up_table[i];
+    }
+
 }
 
 cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
@@ -97,6 +34,9 @@ cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
     if (I.depth() != CV_32F){
         I.convertTo(this->I, CV_32F,1.0/255.0);
     }
+    cvtColor(I,this->I_YUV,COLOR_BGR2YUV);
+    this->I_YUV.convertTo(this->I_YUV, CV_32F,1.0/255.0);
+
     double start = clock();
     estimateAtmosphericLight();
     double stop = clock();
@@ -129,13 +69,14 @@ cv::Mat DeHaze::videoHazeRemove(const cv::Mat& I){
 //3-5ms
 cv::Vec3f DeHaze::estimateAtmosphericLight(){
 
-    double start = clock();
+//    double start = clock();
 
     Mat minChannel = calcMinChannel(I);
 
     double maxValue = 0;
     Mat aimRoi;
 
+    #pragma omp parallel for
     for (int i = 0; i < minChannel.rows; i+=r) {
         for (int j = 0; j < minChannel.cols; j+=r) {
             int w = (j+r < minChannel.cols) ? r : minChannel.cols-j;
@@ -158,10 +99,10 @@ cv::Vec3f DeHaze::estimateAtmosphericLight(){
     atmosphericLight[1] = static_cast<float> (mean.val[1]);
     atmosphericLight[2] = static_cast<float> (mean.val[2]);
 
-    double stop = clock();
-
-    cout<<"atmosphericLight" << atmosphericLight << endl;
-    cout<<"估计大气光耗时："<<(stop - start)/CLOCKS_PER_SEC*1000<<"ms"<<endl;
+//    double stop = clock();
+//
+//    cout<<"atmosphericLight" << atmosphericLight << endl;
+//    cout<<"估计大气光耗时："<<(stop - start)/CLOCKS_PER_SEC*1000<<"ms"<<endl;
 
     return atmosphericLight;
 }
@@ -169,41 +110,44 @@ cv::Vec3f DeHaze::estimateAtmosphericLight(){
 cv::Mat DeHaze::estimateTransmission(){
 
     double start = clock();
+    double stop;
 
 //    CV_Assert(I.channels() == 3);
     vector<Mat> channels;
-    split(I,channels);
+    split(I_YUV,channels);
 
-    channels[0] = channels[0]/atmosphericLight[0];
-    channels[1] = channels[1]/atmosphericLight[1];
-    channels[2] = channels[2]/atmosphericLight[2];
+    channels[0] = channels[0]/(atmosphericLight[0]*0.114 +
+            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.299);
 
-    Mat normalized;
-    merge(channels,normalized);
+//    split(I,channels);
+//
+//    channels[0] = channels[0]/atmosphericLight[0];
+//    channels[1] = channels[1]/atmosphericLight[1];
+//    channels[2] = channels[2]/atmosphericLight[2];
 
-    Mat darkChannel = calcDarkChannel(normalized,r);
+//    Mat normalized;
+//    merge(channels,normalized);
 
-//    imshow("dark channel",darkChannel);
-
+    start = clock();
+    Mat darkChannel = calcDarkChannel(channels[0],r);
     transmission = 1.0 - omega * darkChannel;
+    stop = clock();
+    LOGD("粗略透射率计算耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-    //导向滤波耗时30ms左右
-//    transmission = guidedFilter(src, transmission, 8*r, eps);
-
+    start = clock();
     //透射率修正
     float k = 0.3;
     transmission = min(max(k/abs(1-darkChannel),1).mul(transmission),1);
+    stop = clock();
+    LOGD("透射率修正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-    Mat gray;
-    cvtColor(I,gray,CV_BGR2GRAY);
+//    Mat gray;
+//    cvtColor(I,gray,CV_BGR2GRAY);
     //10ms左右
-    transmission = fastGuidedFilter(gray, transmission, 8*r, 4, eps);
-
-    double stop = clock();
-
-    cout<<"估计透射率耗时："<<(stop - start)/CLOCKS_PER_SEC*1000<<"ms"<<endl;
-
-//    imshow("transmission",transmission);
+    start = clock();
+    transmission = fastGuidedFilter(channels[0], transmission, 8*r, 6, eps);
+    stop = clock();
+    LOGD("快速导向滤波耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return transmission;
 }
@@ -261,28 +205,43 @@ cv::Mat DeHaze::estimateTransmissionVideo(){
 
 cv::Mat DeHaze::recover(){
 
-    double start = clock();
+    double start;
+    double stop;
 
-//    CV_Assert(I.channels() == 3 && I.depth() == CV_32F);
+    start = clock();
     vector<Mat> channels;
     split(I,channels);
+    stop = clock();
+    LOGD("分离原始图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-//	Mat t = max(t0,transmission);
+    start = clock();
     Mat t = transmission;
 
     channels[0] = (channels[0]-atmosphericLight[0])/t + atmosphericLight[0];
     channels[1] = (channels[1]-atmosphericLight[1])/t + atmosphericLight[1];
     channels[2] = (channels[2]-atmosphericLight[2])/t + atmosphericLight[2];
-
     Mat recover;
     merge(channels,recover);
 
-    pow(recover,0.7,recover);//3ms gamma矫正
+    stop = clock();
+    LOGD("粗略恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
+//    start = clock();
+//    pow(recover,0.7,recover);//3ms gamma矫正
+////    LUT(recover,lookUpTable,recover);
+//    stop = clock();
+//    LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
+    start = clock();
     recover.convertTo(recover,CV_8U,255);
+    stop = clock();
+    LOGD("转化成8位图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-    double stop = clock();
-
-    cout<<"恢复图像耗时："<<(stop - start)/CLOCKS_PER_SEC*1000<<"ms"<<endl;
+    start = clock();
+    //pow(recover,0.7,recover);//3ms gamma矫正
+    LUT(recover,lookUpTable,recover);
+    stop = clock();
+    LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return recover;
 }

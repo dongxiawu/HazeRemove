@@ -48,7 +48,6 @@ add_library( # Specifies the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-             # src/main/cpp/source/native-lib.cpp
              # src/main/cpp/source/dehaze.cpp
              # src/main/cpp/source/darkchannel.cpp
              # src/main/cpp/source/fastguidedfilter.cpp
