@@ -32,10 +32,10 @@ cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
 {
 //    CV_Assert(I.channels() == 3);
     if (I.depth() != CV_32F){
-        I.convertTo(this->I, CV_32F,1.0/255.0);
+        I.convertTo(this->I, CV_32F);
     }
     cvtColor(I,this->I_YUV,COLOR_BGR2YUV);
-    this->I_YUV.convertTo(this->I_YUV, CV_32F,1.0/255.0);
+    this->I_YUV.convertTo(this->I_YUV, CV_32F);
 
     double start = clock();
     estimateAtmosphericLight();
@@ -58,7 +58,7 @@ cv::Mat DeHaze::videoHazeRemove(const cv::Mat& I){
     CV_Assert(I.channels() == 3);
 
     if (I.depth() != CV_32F){
-        I.convertTo(this->I, CV_32F,1.0/255.0);
+        I.convertTo(this->I, CV_32F);
     }
 
     estimateAtmosphericLightVideo();
@@ -145,7 +145,7 @@ cv::Mat DeHaze::estimateTransmission(){
 //    cvtColor(I,gray,CV_BGR2GRAY);
     //10ms左右
     start = clock();
-    transmission = fastGuidedFilter(channels[0], transmission, 8*r, 6, eps);
+    transmission = fastGuidedFilter(channels[0], transmission, 8*r, 4, eps);
     stop = clock();
     LOGD("快速导向滤波耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
@@ -233,7 +233,7 @@ cv::Mat DeHaze::recover(){
 //    LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
-    recover.convertTo(recover,CV_8U,255);
+    recover.convertTo(recover,CV_8U);
     stop = clock();
     LOGD("转化成8位图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
