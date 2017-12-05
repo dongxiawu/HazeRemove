@@ -47,8 +47,6 @@ import org.opencv.core.Mat;
 import java.io.IOException;
 import java.util.List;
 
-import dehaze.HazeRemove;
-import dehaze.VideoHazeRemove;
 
 public class CameraFragment extends Fragment {
     private static final String TAG = "CameraFragment";
@@ -88,8 +86,6 @@ public class CameraFragment extends Fragment {
     private int mCameraId;
 
     private Camera mCamera;
-
-    private HazeRemove hazeRemove;
 
     private boolean isHazeRemoveMode;
 
@@ -507,7 +503,6 @@ public class CameraFragment extends Fragment {
             start = System.currentTimeMillis();
             Mat dest = new Mat();
             Utils.bitmapToMat(bitmap,dest);
-            dest = hazeRemove.process(dest);
 
             bitmap = Bitmap.createBitmap(dest.width(),dest.height(),Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(dest,bitmap);

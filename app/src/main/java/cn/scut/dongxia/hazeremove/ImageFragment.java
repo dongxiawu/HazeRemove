@@ -29,8 +29,6 @@ import org.opencv.core.Mat;
 
 import java.io.IOException;
 
-import dehaze.DeHaze;
-import dehaze.ImageHazeRemove;
 
 
 public class ImageFragment extends Fragment {
@@ -116,9 +114,7 @@ public class ImageFragment extends Fragment {
                                 final long start = System.currentTimeMillis();
                                 Mat dest = new Mat();
                                 Utils.bitmapToMat(mBitmap,dest);
-                                dest =new ImageHazeRemove(15, 0.01, 0.95, 10E-6).process(dest);
-//                                dest = new DeHaze(15,0.1,0.95,10E-6)
-//                                        .imageHazeRemove(dest);
+
                                 Utils.matToBitmap(dest,mBitmap);
                                 final long stop = System.currentTimeMillis();
                                 getActivity().runOnUiThread(new Runnable() {
