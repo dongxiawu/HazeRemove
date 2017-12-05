@@ -34,8 +34,7 @@ cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
     if (I.depth() != CV_32F){
         I.convertTo(this->I, CV_32F);
     }
-    cvtColor(I,this->I_YUV,COLOR_BGR2YUV);
-    this->I_YUV.convertTo(this->I_YUV, CV_32F);
+    cvtColor(this->I,this->I_YUV,COLOR_BGR2YUV);
 
     double start = clock();
     estimateAtmosphericLight();
@@ -55,11 +54,12 @@ cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
 }
 
 cv::Mat DeHaze::videoHazeRemove(const cv::Mat& I){
-    CV_Assert(I.channels() == 3);
+//    CV_Assert(I.channels() == 3);
 
     if (I.depth() != CV_32F){
         I.convertTo(this->I, CV_32F);
     }
+    cvtColor(this->I,this->I_YUV,COLOR_BGR2YUV);
 
     estimateAtmosphericLightVideo();
     estimateTransmissionVideo();
@@ -170,24 +170,24 @@ cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
 }
 
 cv::Mat DeHaze::estimateTransmissionVideo(){
-    if (preI.empty()){
-        preI = this->I.clone();
-        estimateTransmission();
-    } else{
-        Scalar mean,std;
-//        Mat diff = abs(I-preI);
-        Mat diff;
-        absdiff(I,preI,diff);
-        cv::meanStdDev(diff,mean,std);
-//        cout << std.val[0]+std.val[1]+std.val[2] << endl;
-        if(std.val[0]+std.val[1]+std.val[2] >0.01){
-            estimateTransmission();
-            cout<<"estimateTransmission"<<endl;
-        }
-        preI = this->I.clone();
-        cout<<"std total:"<<std.val[0]+std.val[1]+std.val[2]<<endl;
-        imshow("diff",diff);
-    }
+//    if (preI.empty()){
+//        preI = this->I.clone();
+//        estimateTransmission();
+//    } else{
+//        Scalar mean,std;
+////        Mat diff = abs(I-preI);
+//        Mat diff;
+//        absdiff(I,preI,diff);
+//        cv::meanStdDev(diff,mean,std);
+////        cout << std.val[0]+std.val[1]+std.val[2] << endl;
+//        if(std.val[0]+std.val[1]+std.val[2] >0.01){
+//            estimateTransmission();
+//            cout<<"estimateTransmission"<<endl;
+//        }
+//        preI = this->I.clone();
+//        cout<<"std total:"<<std.val[0]+std.val[1]+std.val[2]<<endl;
+//        imshow("diff",diff);
+//    }
 
 //    Mat I_temp,preI_temp;
 //    I.convertTo(I_temp,CV_8UC3,255);
@@ -197,7 +197,7 @@ cv::Mat DeHaze::estimateTransmissionVideo(){
 
 //    Scalar diff = getMSSIM(I,preI);
 //    cout << "different:"<< diff*100 << endl;
-//    estimateTransmission();
+    estimateTransmission();
 
     return transmission;
 

@@ -581,11 +581,13 @@ public class CameraFragment extends Fragment {
         @Override
         public void onCameraViewStarted(int width, int height) {
             mRgba = new Mat(height, width, CvType.CV_8UC4);
+            nativeCreateHazeRemoveModel();
         }
 
         @Override
         public void onCameraViewStopped() {
             mRgba.release();
+            nativeDeleteHazeRemoveModel();
         }
 
         @Override
@@ -600,4 +602,8 @@ public class CameraFragment extends Fragment {
     };
 
     public native void nativeProcessFrame(long matAddrRgba);
+
+    private native void nativeCreateHazeRemoveModel();
+
+    private native void nativeDeleteHazeRemoveModel();
 }
