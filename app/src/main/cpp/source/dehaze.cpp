@@ -153,6 +153,7 @@ cv::Mat DeHaze::estimateTransmission(){
 }
 
 cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
+    double start = clock();
 
     atmosphericLight = estimateAtmosphericLight();
 
@@ -165,6 +166,9 @@ cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
 
     atmosphericLightSum -= atmosphericLightQueue.front();
     atmosphericLightQueue.pop();
+
+    double stop = clock();
+    LOGD("估计大气光耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return atmosphericLight;
 }
