@@ -13,6 +13,8 @@ import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.Build;
 import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Size;
@@ -27,39 +29,18 @@ import org.opencv.imgproc.Imgproc;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 import cn.scut.dongxia.hazeremove.BuildConfig;
 import cn.scut.dongxia.hazeremove.R;
 
-public class CameraPreview extends SurfaceView
-        implements SurfaceHolder.Callback, Camera.PreviewCallback{
+public class CameraPreview extends AbsCameraBridgeView implements Camera.PreviewCallback{
 
     private static final String TAG = "CameraPreview";
 
-    private static final int MAX_UNSPECIFIED = -1;
-
     private static final int MAGIC_TEXTURE_ID = 10;
-
-    @IntDef({CAMERA_ID_ANY,CAMERA_ID_BACK,CAMERA_ID_FRONT})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface CameraId {}
-    public static final int CAMERA_ID_ANY   = -1;
-    public static final int CAMERA_ID_BACK  = 99;
-    public static final int CAMERA_ID_FRONT = 98;
-
-    @IntDef({PREVIEW_STOPPED, PREVIEW_STARTED})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface CameraPreviewState {}
-    private static final int PREVIEW_STOPPED = 0;
-    private static final int PREVIEW_STARTED = 1;
-
-    private @CameraPreviewState int mState = PREVIEW_STARTED;
-
-    protected @CameraId int mCameraId = CAMERA_ID_ANY;
-
-    private boolean mSurfaceExist;
-    private final Object mSyncObject = new Object();
 
     private byte mBuffer[];
     private Mat[] mFrameChain;
@@ -67,27 +48,11 @@ public class CameraPreview extends SurfaceView
     private Thread mThread;
     private boolean mStopThread;
 
-    protected CameraPreviewFrame[] mCameraFrame;
+    protected JavaCameraFrame[] mCameraFrame;
     private SurfaceTexture mSurfaceTexture;
     private int mPreviewFormat = ImageFormat.NV21;
 
     private Camera mCamera;
-
-    private Bitmap mCacheBitmap;
-
-    private int mFrameWidth;
-    private int mFrameHeight;
-
-    private int mMaxHeight;
-    private int mMaxWidth;
-
-    private float mScale = 0;
-
-    private FpsMessage mFpsMessage;
-
-    protected boolean mEnabled;
-
-    private CameraPreviewListener mListener;
 
     public CameraPreview(Context context) {
         this(context, null);
@@ -103,133 +68,43 @@ public class CameraPreview extends SurfaceView
 
     public CameraPreview(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-
-        int count = attrs.getAttributeCount();
-        Log.d(TAG, "Attr count: " + Integer.valueOf(count));
-
-        TypedArray styledAttrs = getContext().obtainStyledAttributes(attrs, R.styleable.CameraPreview);
-        mCameraId = styledAttrs.getInt(R.styleable.CameraBridgeViewBase_camera_id, CAMERA_ID_ANY);
-        styledAttrs.recycle();
-
-        mMaxWidth = MAX_UNSPECIFIED;
-        mMaxHeight = MAX_UNSPECIFIED;
-        getHolder().addCallback(this);
     }
 
-    public void setCameraId(@CameraId int cameraId) {
-        this.mCameraId = cameraId;
-    }
-
-    public @CameraId int getmCameraId() {
-        return mCameraId;
-    }
-
-    public void surfaceCreated(SurfaceHolder holder){
-        synchronized(mSyncObject) {
-            mSurfaceExist = true;
-            checkCurrentState();
-        }
-    }
-
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
-        Log.d(TAG, "call surfaceChanged event");
-        synchronized(mSyncObject) {
-            if (!mSurfaceExist) {
-                mSurfaceExist = true;
-                checkCurrentState();
-            } else {
-                /** Surface changed. We need to stop camera and restart with new parameters */
-                /* Pretend that old surface has been destroyed */
-                mSurfaceExist = false;
-                checkCurrentState();
-                /* Now use new surface. Say we have it now */
-                mSurfaceExist = true;
-                checkCurrentState();
-            }
-        }
-    }
-
-    public void surfaceDestroyed(SurfaceHolder holder){
-        synchronized(mSyncObject) {
-            mSurfaceExist = false;
-            checkCurrentState();
-        }
-    }
-
-    public interface CameraPreviewListener{
-
-        void onCameraPreviewStarted(int width, int height);
-
-        void onCameraPreviewStopped();
-
-        Mat onCameraPreviewFrame(CameraPreviewFrame previewFrame);
-    }
-
-    public void enablePreview(){
-        synchronized(mSyncObject) {
-            mEnabled = true;
-            checkCurrentState();
-        }
-    }
-
-    public void disablePreview(){
-        synchronized(mSyncObject) {
-            mEnabled = false;
-            checkCurrentState();
-        }
-    }
-
-    public void enableFpsMessage() {
-        if (mFpsMessage == null) {
-            mFpsMessage = new FpsMessage();
-            mFpsMessage.setResolution(mFrameWidth, mFrameHeight);
-        }
-    }
-
-    public void disableFpsMessage() {
-        mFpsMessage = null;
-    }
-
-    public void setCameraPreviewListener(CameraPreviewListener listener){
-
-    }
-
-    public void setMaxFrameSize(int maxWidth, int maxHeight) {
-        mMaxWidth = maxWidth;
-        mMaxHeight = maxHeight;
-    }
-
-    // NOTE: On Android 4.1.x the function must be called before SurfaceTexture constructor!
-    protected void AllocateCache()
-    {
-        mCacheBitmap = Bitmap.createBitmap(mFrameWidth, mFrameHeight, Bitmap.Config.ARGB_8888);
-    }
-
-    protected Size calculateCameraFrameSize(List<Camera.Size> supportedSizes, int surfaceWidth, int surfaceHeight) {
-        int calcWidth = 0;
-        int calcHeight = 0;
-
-        int maxAllowedWidth = (mMaxWidth != MAX_UNSPECIFIED && mMaxWidth < surfaceWidth)? mMaxWidth : surfaceWidth;
-        int maxAllowedHeight = (mMaxHeight != MAX_UNSPECIFIED && mMaxHeight < surfaceHeight)? mMaxHeight : surfaceHeight;
-
-        for (Camera.Size size : supportedSizes) {
-            int width = size.width;
-            int height = size.height;
-
-            if (width <= maxAllowedWidth && height <= maxAllowedHeight) {
-                if (width >= calcWidth && height >= calcHeight) {
-                    calcWidth = (int) width;
-                    calcHeight = (int) height;
-                }
-            }
+    private class JavaCameraFrame implements CameraViewFrame {
+        @Override
+        public Mat gray() {
+            return mYuvFrameData.submat(0, mHeight, 0, mWidth);
         }
 
-        return new Size(calcWidth, calcHeight);
-    }
+        @Override
+        public Mat rgba() {
+            if (mPreviewFormat == ImageFormat.NV21)
+                Imgproc.cvtColor(mYuvFrameData, mRgba, Imgproc.COLOR_YUV2RGBA_NV21, 4);
+            else if (mPreviewFormat == ImageFormat.YV12)
+                Imgproc.cvtColor(mYuvFrameData, mRgba, Imgproc.COLOR_YUV2RGB_I420, 4);  // COLOR_YUV2RGBA_YV12 produces inverted colors
+            else
+                throw new IllegalArgumentException("Preview Format can be NV21 or YV12");
 
-    public void updateFrame(Mat newFrame){
+            return mRgba;
+        }
 
-    }
+        public JavaCameraFrame(Mat Yuv420sp, int width, int height) {
+            super();
+            mWidth = width;
+            mHeight = height;
+            mYuvFrameData = Yuv420sp;
+            mRgba = new Mat();
+        }
+
+        public void release() {
+            mRgba.release();
+        }
+
+        private Mat mYuvFrameData;
+        private Mat mRgba;
+        private int mWidth;
+        private int mHeight;
+    };
 
     protected boolean initializeCamera(int width, int height) {
         Log.d(TAG, "Initialize java camera");
@@ -366,9 +241,9 @@ public class CameraPreview extends SurfaceView
 
                     AllocateCache();
 
-                    mCameraFrame = new CameraPreviewFrame[2];
-                    mCameraFrame[0] = new CameraPreviewFrame(mFrameChain[0], mFrameWidth, mFrameHeight);
-                    mCameraFrame[1] = new CameraPreviewFrame(mFrameChain[1], mFrameWidth, mFrameHeight);
+                    mCameraFrame = new JavaCameraFrame[2];
+                    mCameraFrame[0] = new JavaCameraFrame(mFrameChain[0], mFrameWidth, mFrameHeight);
+                    mCameraFrame[1] = new JavaCameraFrame(mFrameChain[1], mFrameWidth, mFrameHeight);
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                         mSurfaceTexture = new SurfaceTexture(MAGIC_TEXTURE_ID);
@@ -420,6 +295,7 @@ public class CameraPreview extends SurfaceView
         /* 1. We need to instantiate camera
          * 2. We need to start thread which will be getting frames
          */
+
         /* First step - initialize camera connection */
         Log.d(TAG, "Connecting to camera");
         if (!initializeCamera(width, height)){
@@ -432,6 +308,7 @@ public class CameraPreview extends SurfaceView
         Log.d(TAG, "Starting processing thread");
         mStopThread = false;
         mThread = new Thread(new CameraWorker());
+//        mThread = new Thread(new DrawFrameWorker());
         mThread.start();
 
         return true;
@@ -472,44 +349,10 @@ public class CameraPreview extends SurfaceView
             mCameraFrameReady = true;
             this.notify();
         }
+
         if (mCamera != null)
             mCamera.addCallbackBuffer(mBuffer);
     }
-
-    public class CameraPreviewFrame {
-
-        public Mat gray() {
-            return mYuvFrameData.submat(0, mHeight, 0, mWidth);
-        }
-
-        public Mat rgba() {
-            if (mPreviewFormat == ImageFormat.NV21)
-                Imgproc.cvtColor(mYuvFrameData, mRgba, Imgproc.COLOR_YUV2RGBA_NV21, 4);
-            else if (mPreviewFormat == ImageFormat.YV12)
-                Imgproc.cvtColor(mYuvFrameData, mRgba, Imgproc.COLOR_YUV2RGB_I420, 4);  // COLOR_YUV2RGBA_YV12 produces inverted colors
-            else
-                throw new IllegalArgumentException("Preview Format can be NV21 or YV12");
-
-            return mRgba;
-        }
-
-        public CameraPreviewFrame(Mat Yuv420sp, int width, int height) {
-            super();
-            mWidth = width;
-            mHeight = height;
-            mYuvFrameData = Yuv420sp;
-            mRgba = new Mat();
-        }
-
-        public void release() {
-            mRgba.release();
-        }
-
-        private Mat mYuvFrameData;
-        private Mat mRgba;
-        private int mWidth;
-        private int mHeight;
-    };
 
     private class CameraWorker implements Runnable {
 
@@ -536,8 +379,7 @@ public class CameraPreview extends SurfaceView
                 //
                 if (!mStopThread && hasFrame) {
                     if (!mFrameChain[1 - mChainIdx].empty()) {
-                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);
-//                        mListener.onCameraFrame(mCameraFrame[1-mChainIdx]);
+                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);//TODO
                     }
                 }
             } while (!mStopThread);
@@ -545,146 +387,37 @@ public class CameraPreview extends SurfaceView
         }
     }
 
-    /**
-     * Called when mSyncObject lock is held
-     */
-    private void checkCurrentState() {
-        Log.d(TAG, "call checkCurrentState");
-        @CameraPreviewState int targetState;
 
-        if (mEnabled && mSurfaceExist && getVisibility() == VISIBLE) {
-            targetState = PREVIEW_STARTED;
-        } else {
-            targetState = PREVIEW_STOPPED;
-        }
-
-        if (targetState != mState) {
-            /* The state change detected. Need to exit the current state and enter target state */
-            processExitState(mState);
-            mState = targetState;
-            processEnterState(mState);
-        }
-    }
-
-    private void processEnterState(@CameraPreviewState int state) {
-        Log.d(TAG, "call processEnterState: " + state);
-        switch(state) {
-            case PREVIEW_STARTED:
-                onEnterStartedState();
-                if (mListener != null) {
-                    mListener.onCameraPreviewStarted(mFrameWidth, mFrameHeight);
-                }
-                break;
-            case PREVIEW_STOPPED:
-                onEnterStoppedState();
-                if (mListener != null) {
-                    mListener.onCameraPreviewStopped();
-                }
-                break;
-        };
-    }
-
-    private void processExitState(@CameraPreviewState int state) {
-        Log.d(TAG, "call processExitState: " + state);
-        switch(state) {
-            case PREVIEW_STARTED:
-                onExitStartedState();
-                break;
-            case PREVIEW_STOPPED:
-                onExitStoppedState();
-                break;
-        };
-    }
-
-    private void onEnterStoppedState() {
-        /* nothing to do */
-    }
-
-    private void onExitStoppedState() {
-        /* nothing to do */
-    }
-
-    // NOTE: The order of bitmap constructor and camera connection is important for android 4.1.x
-    // Bitmap must be constructed before surface
-    private void onEnterStartedState() {
-        Log.d(TAG, "call onEnterStartedState");
-        /* Connect camera */
-        if (!connectCamera(getWidth(), getHeight())) {
-            AlertDialog ad = new AlertDialog.Builder(getContext()).create();
-            ad.setCancelable(false); // This blocks the 'BACK' button
-            ad.setMessage("It seems that you device does not support camera (or it is locked). Application will be closed.");
-            ad.setButton(DialogInterface.BUTTON_NEUTRAL,  "OK", new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int which) {
-                    dialog.dismiss();
-                    ((Activity) getContext()).finish();
-                }
-            });
-            ad.show();
-
-        }
-    }
-
-    private void onExitStartedState() {
-        disconnectCamera();
-        if (mCacheBitmap != null) {
-            mCacheBitmap.recycle();
-        }
-    }
-
-    /**
-     * This method shall be called by the subclasses when they have valid
-     * object and want it to be delivered to external client (via callback) and
-     * then displayed on the screen.
-     * @param frame - the current frame to be delivered
-     */
-    protected void deliverAndDrawFrame(CameraPreviewFrame frame) {
-        Mat modified;
-
-        if (mListener != null) {
-            modified = mListener.onCameraPreviewFrame(frame);
-        } else {
-            modified = frame.rgba();
-        }
-
-        boolean bmpValid = true;
-        if (modified != null) {
-            try {
-                Utils.matToBitmap(modified, mCacheBitmap);
-            } catch(Exception e) {
-                Log.e(TAG, "Mat type: " + modified);
-                Log.e(TAG, "Bitmap type: " + mCacheBitmap.getWidth() + "*" + mCacheBitmap.getHeight());
-                Log.e(TAG, "Utils.matToBitmap() throws an exception: " + e.getMessage());
-                bmpValid = false;
-            }
-        }
-
-        if (bmpValid && mCacheBitmap != null) {
-            Canvas canvas = getHolder().lockCanvas();
-            if (canvas != null) {
-                canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
-                if (BuildConfig.DEBUG)
-                    Log.d(TAG, "mStretch value: " + mScale);
-
-                if (mScale != 0) {
-                    canvas.drawBitmap(mCacheBitmap, new Rect(0,0,mCacheBitmap.getWidth(), mCacheBitmap.getHeight()),
-                            new Rect((int)((canvas.getWidth() - mScale*mCacheBitmap.getWidth()) / 2),
-                                    (int)((canvas.getHeight() - mScale*mCacheBitmap.getHeight()) / 2),
-                                    (int)((canvas.getWidth() - mScale*mCacheBitmap.getWidth()) / 2 + mScale*mCacheBitmap.getWidth()),
-                                    (int)((canvas.getHeight() - mScale*mCacheBitmap.getHeight()) / 2 + mScale*mCacheBitmap.getHeight())), null);
-                } else {
-                    canvas.drawBitmap(mCacheBitmap, new Rect(0,0,mCacheBitmap.getWidth(), mCacheBitmap.getHeight()),
-                            new Rect((canvas.getWidth() - mCacheBitmap.getWidth()) / 2,
-                                    (canvas.getHeight() - mCacheBitmap.getHeight()) / 2,
-                                    (canvas.getWidth() - mCacheBitmap.getWidth()) / 2 + mCacheBitmap.getWidth(),
-                                    (canvas.getHeight() - mCacheBitmap.getHeight()) / 2 + mCacheBitmap.getHeight()), null);
-                }
-
-                if (mFpsMessage != null) {
-                    mFpsMessage.measure();
-                    mFpsMessage.draw(canvas, 20, 30);
-                }
-                getHolder().unlockCanvasAndPost(canvas);
-            }
-        }
-    }
+//    private final Queue<Mat> CameraFrameQueue = new LinkedList<>();
+//
+//    private class DrawFrameWorker implements Runnable {
+//
+//        @Override
+//        public void run() {
+//            do {
+//                Mat newFrame = null;
+//                synchronized (CameraFrameQueue){
+//                    try {
+//                        while (CameraFrameQueue.isEmpty() && !mStopThread){
+//                            CameraFrameQueue.wait();
+//                        }
+//                    } catch (InterruptedException e){
+//                        e.printStackTrace();
+//                        Log.d(TAG, "CameraFrameQueue is Interrupted");
+//                    }
+//
+//                    if (!CameraFrameQueue.isEmpty()){
+//                        newFrame = CameraFrameQueue.poll();
+//                    }
+//
+//                }
+//
+//                if (newFrame != null){
+//                    drawFrame(newFrame);
+//                }
+//
+//            } while (!mStopThread);
+//            Log.d(TAG, "Finish processing thread");
+//        }
+//    }
 }

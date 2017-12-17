@@ -28,55 +28,60 @@ DeHaze::DeHaze(int r, double t0, double omega, double eps) : r(r), t0(t0), omega
 
 }
 
-cv::Mat DeHaze::imageHazeRemove(const cv::Mat& I)
+cv::Mat DeHaze::imageHazeRemove(const cv::Mat& origI)
 {
 //    CV_Assert(I.channels() == 3);
-    if (I.depth() != CV_32F){
-        I.convertTo(this->I, CV_32F);
+    Mat I;
+    if (origI.depth() != CV_32F){
+        origI.convertTo(I, CV_32F);
     }
-    cvtColor(this->I,this->I_YUV,COLOR_BGR2YUV);
 
     double start = clock();
-    estimateAtmosphericLight();
+
+    Vec3f atmosphericLight = estimateAtmosphericLight(I);
     double stop = clock();
     LOGD("估计大气光耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
-    estimateTransmission();
+    Mat transmission = estimateTransmission(I,atmosphericLight);
     stop = clock();
     LOGD("计算透射率耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
-    Mat recoverImg = recover();
+    Mat recoverImg = recover(I,transmission,atmosphericLight);
     stop = clock();
     LOGD("恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
     return recoverImg;
 }
 
-cv::Mat DeHaze::videoHazeRemove(const cv::Mat& I){
+cv::Mat DeHaze::videoHazeRemove(const cv::Mat& origI){
 //    CV_Assert(I.channels() == 3);
-
-    if (I.depth() != CV_32F){
-        I.convertTo(this->I, CV_32F);
+    Mat I;
+//    Mat I_YUV;
+    if (origI.depth() != CV_32F){
+        origI.convertTo(I, CV_32F);
     }
-    cvtColor(this->I,this->I_YUV,COLOR_BGR2YUV);
+//    cvtColor(I,I_YUV,COLOR_BGR2YUV);
 
-    estimateAtmosphericLightVideo();
-    estimateTransmissionVideo();
-    return recover();
+    Vec3f atmosphericLight = estimateAtmosphericLightVideo(I);
+    Mat transmission = estimateTransmissionVideo(I,atmosphericLight);
+    return recover(I,transmission,atmosphericLight);
 }
 
 //3-5ms
-cv::Vec3f DeHaze::estimateAtmosphericLight(){
+cv::Vec3f DeHaze::estimateAtmosphericLight(const cv::Mat& I){
 
-//    double start = clock();
+    CV_Assert(I.depth() == CV_32F);
+
+    double start = clock();
+    Vec3f atmosphericLight(0,0,0);
 
     Mat minChannel = calcMinChannel(I);
 
     double maxValue = 0;
     Mat aimRoi;
 
-    #pragma omp parallel for
+//    #pragma omp parallel for
     for (int i = 0; i < minChannel.rows; i+=r) {
         for (int j = 0; j < minChannel.cols; j+=r) {
             int w = (j+r < minChannel.cols) ? r : minChannel.cols-j;
@@ -99,38 +104,42 @@ cv::Vec3f DeHaze::estimateAtmosphericLight(){
     atmosphericLight[1] = static_cast<float> (mean.val[1]);
     atmosphericLight[2] = static_cast<float> (mean.val[2]);
 
-//    double stop = clock();
-//
+    double stop = clock();
+    LOGD("估计大气光耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 //    cout<<"atmosphericLight" << atmosphericLight << endl;
 //    cout<<"估计大气光耗时："<<(stop - start)/CLOCKS_PER_SEC*1000<<"ms"<<endl;
 
     return atmosphericLight;
 }
 
-cv::Mat DeHaze::estimateTransmission(){
+cv::Mat DeHaze::estimateTransmission(const cv::Mat& I, Vec3f atmosphericLight){
 
     double start = clock();
     double stop;
 
 //    CV_Assert(I.channels() == 3);
-    vector<Mat> channels;
-    split(I_YUV,channels);
-
-    channels[0] = channels[0]/(atmosphericLight[0]*0.114 +
-            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.299);
-
-//    split(I,channels);
+//    Mat I_YUV;
+//    cvtColor(I,I_YUV,COLOR_BGR2YUV);
 //
-//    channels[0] = channels[0]/atmosphericLight[0];
-//    channels[1] = channels[1]/atmosphericLight[1];
-//    channels[2] = channels[2]/atmosphericLight[2];
+//    vector<Mat> channels;
+//    split(I_YUV,channels);
+//
+//    channels[0] = channels[0]/(atmosphericLight[0]*0.114 +
+//            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.299);
 
-//    Mat normalized;
-//    merge(channels,normalized);
+    vector<Mat> channels;
+    split(I,channels);
+
+    channels[0] = channels[0]/atmosphericLight[0];
+    channels[1] = channels[1]/atmosphericLight[1];
+    channels[2] = channels[2]/atmosphericLight[2];
+
+    Mat normalized;
+    merge(channels,normalized);
 
     start = clock();
-    Mat darkChannel = calcDarkChannel(channels[0],r);
-    transmission = 1.0 - omega * darkChannel;
+    Mat darkChannel = calcDarkChannel(normalized,r);
+    Mat transmission = 1.0 - omega * darkChannel;
     stop = clock();
     LOGD("粗略透射率计算耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
@@ -141,21 +150,21 @@ cv::Mat DeHaze::estimateTransmission(){
     stop = clock();
     LOGD("透射率修正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-//    Mat gray;
-//    cvtColor(I,gray,CV_BGR2GRAY);
+    Mat gray;
+    cvtColor(I,gray,CV_BGRA2GRAY);
     //10ms左右
     start = clock();
-    transmission = fastGuidedFilter(channels[0], transmission, 8*r, 4, eps);
+    transmission = fastGuidedFilter(gray, transmission, 8*r, 4, eps);
     stop = clock();
     LOGD("快速导向滤波耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return transmission;
 }
 
-cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
+cv::Vec3f DeHaze::estimateAtmosphericLightVideo(const cv::Mat& I){
     double start = clock();
 
-    atmosphericLight = estimateAtmosphericLight();
+    Vec3f atmosphericLight = estimateAtmosphericLight(I);
 
     while (atmosphericLightQueue.size() < fps*2){
         atmosphericLightQueue.push(atmosphericLight);
@@ -173,7 +182,7 @@ cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
     return atmosphericLight;
 }
 
-cv::Mat DeHaze::estimateTransmissionVideo(){
+cv::Mat DeHaze::estimateTransmissionVideo(const cv::Mat& I, Vec3f atmosphericLight){
 //    if (preI.empty()){
 //        preI = this->I.clone();
 //        estimateTransmission();
@@ -201,13 +210,14 @@ cv::Mat DeHaze::estimateTransmissionVideo(){
 
 //    Scalar diff = getMSSIM(I,preI);
 //    cout << "different:"<< diff*100 << endl;
-    estimateTransmission();
+    Mat transmission = estimateTransmission(I,atmosphericLight);
 
     return transmission;
 
 }
 
-cv::Mat DeHaze::recover(){
+cv::Mat DeHaze::recover(const cv::Mat& I, const cv::Mat& transmission,
+                        Vec3f atmosphericLight){
 
     double start;
     double stop;

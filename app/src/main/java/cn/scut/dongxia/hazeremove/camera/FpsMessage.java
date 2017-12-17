@@ -9,9 +9,9 @@ import org.opencv.core.Core;
 
 import java.text.DecimalFormat;
 
-public class FpsMeter {
-    private static final String TAG               = "FpsMeter";
-    private static final int    STEP              = 20;
+public class FpsMessage {
+    private static final String TAG = "FpsMessage";
+    private static final int STEP = 20;
     private static final DecimalFormat FPS_FORMAT = new DecimalFormat("0.00");
 
     private int                 mFramesCouner;

@@ -9,8 +9,6 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
-import android.hardware.Camera;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -30,6 +28,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+
 public class CameraFragment extends Fragment {
     private static final String TAG = "CameraFragment";
 
@@ -37,11 +36,14 @@ public class CameraFragment extends Fragment {
 
     private static final String FRAGMENT_DIALOG = "dialog";
 
+    private long lastFrameTime = 0;
+
     //Widgets
+//    private CameraPreview mCameraView;
     private JavaCameraView mCameraView;
 
-    private Queue<Mat> origMatQueue;
-    private Queue<Mat> resultMatQueue;
+    private Queue<MyMat> origMatQueue;
+    private Queue<MyMat> resultMatQueue;
 
     private ExecutorService executors;
 
@@ -81,60 +83,142 @@ public class CameraFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (!checkCameraPermission()){
+            requestCameraPermission();
+        }
 
-        executors = Executors.newCachedThreadPool();
+//        executors = Executors.newCachedThreadPool();
+        executors = Executors.newFixedThreadPool(6);
+//        executors = Executors.newSingleThreadExecutor();
 
         mCameraView.enableView();
         mCameraView.enableFpsMeter();
         mCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
             @Override
             public void onCameraViewStarted(int width, int height) {
-//                nativeCreateHazeRemoveModel();
+                nativeCreateHazeRemoveModel();
             }
 
             @Override
             public void onCameraViewStopped() {
-//                nativeDeleteHazeRemoveModel();
+                nativeDeleteHazeRemoveModel();
             }
 
             @Override
             public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-                final Mat rgba = inputFrame.rgba();
-                origMatQueue.add(rgba);
+                Mat rgba = inputFrame.rgba().clone();
+
+                synchronized (origMatQueue){
+                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
+                }
+
                 executors.execute(new Runnable() {
                     @Override
                     public void run() {
-                        if (!origMatQueue.isEmpty()){
-                            Mat orig = origMatQueue.poll();
-                            nativeProcessFrame(orig.getNativeObjAddr());
-                            resultMatQueue.add(orig);
+                        MyMat orig = null;
+                        synchronized (origMatQueue){
+                            if (!origMatQueue.isEmpty()){
+                                orig = origMatQueue.poll();
+                            }
                         }
-//                        Mat result = new Mat(rgba.size(),rgba.type());
-////                        nativeProcessFrame(rgba.getNativeObjAddr(),result.getNativeObjAddr());
-//                        nativeProcessFrame(rgba.getNativeObjAddr());
-//                        resultMatQueue.add(result);
-//                        resultMatQueue.add(rgba);
+                        if (orig != null){
+                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
+                            synchronized (resultMatQueue){
+                                resultMatQueue.add(orig);
+                            }
+                        }
                     }
                 });
-                if (resultMatQueue.size()>1){
-                    return resultMatQueue.poll();
-                }else{
-                    return resultMatQueue.peek();
-                }
-//                return resultMatQueue.poll();
 
-                //nativeProcessFrame(rgba.getNativeObjAddr());
-                //return rgba;
+                synchronized (resultMatQueue){
+                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
+                    MyMat myMat = resultMatQueue.poll();
+                    if (myMat != null){
+                        if (myMat.getTime() > lastFrameTime){
+                            lastFrameTime = myMat.getTime();
+                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
+                            return myMat.getMat();
+//                            mCameraView.updateFrame(myMat.getMat());
+                        }
+                    }
+                    return null;
+                }
+
+//                nativeProcessFrame(rgba.getNativeObjAddr());
+//                mCameraView.updateFrame(rgba);
+//
+//                return rgba;
+//                return null;
             }
         });
+
+//        mCameraView.enablePreview();
+//        mCameraView.enableFpsMessage();
+//        mCameraView.setCameraPreviewListener(new CameraPreview.CameraPreviewListener() {
+//            @Override
+//            public void onCameraPreviewStarted(int width, int height) {
+//                nativeCreateHazeRemoveModel();
+//            }
+//
+//            @Override
+//            public void onCameraPreviewStopped() {
+//                nativeDeleteHazeRemoveModel();
+//            }
+//
+//            @Override
+//            public Mat onCameraPreviewFrame(CameraPreview.CameraPreviewFrame previewFrame) {
+////                Mat rgba = previewFrame.rgba().clone();
+////
+//////                synchronized (origMatQueue){
+//////                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
+//////                }
+//////
+//////                executors.execute(new Runnable() {
+//////                    @Override
+//////                    public void run() {
+//////                        MyMat orig = null;
+//////                        synchronized (origMatQueue){
+//////                            if (!origMatQueue.isEmpty()){
+//////                                orig = origMatQueue.poll();
+//////                            }
+//////                        }
+//////                        if (orig != null){
+//////                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
+//////                            synchronized (resultMatQueue){
+//////                                resultMatQueue.add(orig);
+//////                            }
+//////                        }
+//////                    }
+//////                });
+//////
+//////                synchronized (resultMatQueue){
+//////                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
+//////                    MyMat myMat = resultMatQueue.poll();
+//////                    if (myMat != null){
+//////                        if (myMat.getTime() > lastFrameTime){
+//////                            lastFrameTime = myMat.getTime();
+//////                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
+//////                            mCameraView.updateFrame(myMat.getMat());
+//////                        }
+//////                    }
+//////                    return null;
+//////                }
+////
+////                nativeProcessFrame(rgba.getNativeObjAddr());
+////                mCameraView.updateFrame(rgba);
+////
+//////                return rgba;
+////                return null;
+//            }
+//        });
     }
 
     @Override
     public void onPause() {
         Log.d(TAG, "onPause: ");
         super.onPause();
-//        closeCamera();
         mCameraView.disableView();
+//        mCameraView.disablePreview();
         executors.shutdown();
     }
 
@@ -251,22 +335,6 @@ public class CameraFragment extends Fragment {
         }
     }
 
-
-    Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
-        @Override
-        public void onPreviewFrame(byte[] data, Camera camera) {
-//            Canvas canvas = mCameraView.lockCanvas();
-        }
-    };
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-
-        Log.d(TAG, "onConfigurationChanged: ");
-    }
-
-
     public native void nativeProcessFrame(long matAddrRgba);
 
     public native void nativeProcessFrame(long origAddr, long resultAddr);
@@ -274,4 +342,23 @@ public class CameraFragment extends Fragment {
     private native void nativeCreateHazeRemoveModel();
 
     private native void nativeDeleteHazeRemoveModel();
+
+
+    public class MyMat{
+        private Mat mat;
+        private long time;
+
+        public MyMat(Mat mat, long time){
+            this.mat = mat;
+            this.time = time;
+        }
+
+        public long getTime() {
+            return time;
+        }
+
+        public Mat getMat() {
+            return mat;
+        }
+    }
 }
