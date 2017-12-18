@@ -27,18 +27,20 @@ public:
 
     void setFPS(int fps);
 
+    cv::Vec3f estimateAtmosphericLight(const cv::Mat& I);
+    cv::Mat estimateTransmission(const cv::Mat& I, cv::Vec3f atmosphericLight);
+    cv::Mat recover(const cv::Mat& I, const cv::Mat& transmission,
+                    cv::Vec3f atmosphericLight);
 private:
 //    cv::Vec3f estimateAtmosphericLight();
 //    cv::Mat estimateTransmission();
 //    cv::Vec3f estimateAtmosphericLightVideo();
 //    cv::Mat estimateTransmissionVideo();
 //    cv::Mat recover();
-    cv::Vec3f estimateAtmosphericLight(const cv::Mat& I);
-    cv::Mat estimateTransmission(const cv::Mat& I, cv::Vec3f atmosphericLight);
+
+
     cv::Vec3f estimateAtmosphericLightVideo(const cv::Mat& I);
     cv::Mat estimateTransmissionVideo(const cv::Mat& I, cv::Vec3f atmosphericLight);
-    cv::Mat recover(const cv::Mat& I, const cv::Mat& transmission,
-                    cv::Vec3f atmosphericLight);
 
 private:
     //common

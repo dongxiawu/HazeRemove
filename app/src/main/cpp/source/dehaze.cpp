@@ -240,12 +240,6 @@ cv::Mat DeHaze::recover(const cv::Mat& I, const cv::Mat& transmission,
     stop = clock();
     LOGD("粗略恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-//    start = clock();
-//    pow(recover,0.7,recover);//3ms gamma矫正
-////    LUT(recover,lookUpTable,recover);
-//    stop = clock();
-//    LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
-
     start = clock();
     recover.convertTo(recover,CV_8U);
     stop = clock();

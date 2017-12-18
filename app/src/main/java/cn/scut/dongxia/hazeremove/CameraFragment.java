@@ -28,6 +28,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import cn.scut.dongxia.hazeremove.dehaze.DeHaze;
+
 
 public class CameraFragment extends Fragment {
     private static final String TAG = "CameraFragment";
@@ -44,6 +46,8 @@ public class CameraFragment extends Fragment {
 
     private Queue<MyMat> origMatQueue;
     private Queue<MyMat> resultMatQueue;
+
+    private DeHaze deHaze;
 
     private ExecutorService executors;
 
@@ -97,120 +101,67 @@ public class CameraFragment extends Fragment {
             @Override
             public void onCameraViewStarted(int width, int height) {
                 nativeCreateHazeRemoveModel();
+                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
             }
 
             @Override
             public void onCameraViewStopped() {
                 nativeDeleteHazeRemoveModel();
+                deHaze.release();
             }
 
             @Override
             public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-                Mat rgba = inputFrame.rgba().clone();
+//                Mat rgba = inputFrame.rgba().clone();
+                Mat rgba = inputFrame.rgba();
+                Mat recover = deHaze.videoHazeRemove(rgba);
+//                float[] a = new float[3];
+//                new DeHaze(7,0.1,0.95,10E-6,480,864)
+//                        .estimateAtmosphericLight(rgba,a);
 
-                synchronized (origMatQueue){
-                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
-                }
 
-                executors.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        MyMat orig = null;
-                        synchronized (origMatQueue){
-                            if (!origMatQueue.isEmpty()){
-                                orig = origMatQueue.poll();
-                            }
-                        }
-                        if (orig != null){
-                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
-                            synchronized (resultMatQueue){
-                                resultMatQueue.add(orig);
-                            }
-                        }
-                    }
-                });
-
-                synchronized (resultMatQueue){
-                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
-                    MyMat myMat = resultMatQueue.poll();
-                    if (myMat != null){
-                        if (myMat.getTime() > lastFrameTime){
-                            lastFrameTime = myMat.getTime();
-                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
-                            return myMat.getMat();
-//                            mCameraView.updateFrame(myMat.getMat());
-                        }
-                    }
-                    return null;
-                }
+//                synchronized (origMatQueue){
+//                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
+//                }
+//
+//                executors.execute(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        MyMat orig = null;
+//                        synchronized (origMatQueue){
+//                            if (!origMatQueue.isEmpty()){
+//                                orig = origMatQueue.poll();
+//                            }
+//                        }
+//                        if (orig != null){
+//                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
+//                            synchronized (resultMatQueue){
+//                                resultMatQueue.add(orig);
+//                            }
+//                        }
+//                    }
+//                });
+//
+//                synchronized (resultMatQueue){
+//                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
+//                    MyMat myMat = resultMatQueue.poll();
+//                    if (myMat != null){
+//                        if (myMat.getTime() > lastFrameTime){
+//                            lastFrameTime = myMat.getTime();
+//                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
+//                            return myMat.getMat();
+//                        }
+//                    }
+//                    return null;
+//                }
 
 //                nativeProcessFrame(rgba.getNativeObjAddr());
-//                mCameraView.updateFrame(rgba);
-//
+
 //                return rgba;
-//                return null;
+                return recover;
             }
         });
 
-//        mCameraView.enablePreview();
-//        mCameraView.enableFpsMessage();
-//        mCameraView.setCameraPreviewListener(new CameraPreview.CameraPreviewListener() {
-//            @Override
-//            public void onCameraPreviewStarted(int width, int height) {
-//                nativeCreateHazeRemoveModel();
-//            }
-//
-//            @Override
-//            public void onCameraPreviewStopped() {
-//                nativeDeleteHazeRemoveModel();
-//            }
-//
-//            @Override
-//            public Mat onCameraPreviewFrame(CameraPreview.CameraPreviewFrame previewFrame) {
-////                Mat rgba = previewFrame.rgba().clone();
-////
-//////                synchronized (origMatQueue){
-//////                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
-//////                }
-//////
-//////                executors.execute(new Runnable() {
-//////                    @Override
-//////                    public void run() {
-//////                        MyMat orig = null;
-//////                        synchronized (origMatQueue){
-//////                            if (!origMatQueue.isEmpty()){
-//////                                orig = origMatQueue.poll();
-//////                            }
-//////                        }
-//////                        if (orig != null){
-//////                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
-//////                            synchronized (resultMatQueue){
-//////                                resultMatQueue.add(orig);
-//////                            }
-//////                        }
-//////                    }
-//////                });
-//////
-//////                synchronized (resultMatQueue){
-//////                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
-//////                    MyMat myMat = resultMatQueue.poll();
-//////                    if (myMat != null){
-//////                        if (myMat.getTime() > lastFrameTime){
-//////                            lastFrameTime = myMat.getTime();
-//////                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
-//////                            mCameraView.updateFrame(myMat.getMat());
-//////                        }
-//////                    }
-//////                    return null;
-//////                }
-////
-////                nativeProcessFrame(rgba.getNativeObjAddr());
-////                mCameraView.updateFrame(rgba);
-////
-//////                return rgba;
-////                return null;
-//            }
-//        });
     }
 
     @Override
@@ -218,7 +169,6 @@ public class CameraFragment extends Fragment {
         Log.d(TAG, "onPause: ");
         super.onPause();
         mCameraView.disableView();
-//        mCameraView.disablePreview();
         executors.shutdown();
     }
 
@@ -342,7 +292,6 @@ public class CameraFragment extends Fragment {
     private native void nativeCreateHazeRemoveModel();
 
     private native void nativeDeleteHazeRemoveModel();
-
 
     public class MyMat{
         private Mat mat;

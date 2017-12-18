@@ -379,7 +379,7 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
                 //
                 if (!mStopThread && hasFrame) {
                     if (!mFrameChain[1 - mChainIdx].empty()) {
-                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);//TODO
+                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);
                     }
                 }
             } while (!mStopThread);
