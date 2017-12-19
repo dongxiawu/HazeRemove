@@ -397,7 +397,10 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
         boolean bmpValid = true;
         if (modified != null) {
             try {
+                long start = System.currentTimeMillis();
                 Utils.matToBitmap(modified, mCacheBitmap);
+                long stop = System.currentTimeMillis();
+                Log.d(TAG, "mat 转换成 bitmap 耗时：" + (stop - start) + " ms");
             } catch(Exception e) {
                 Log.e(TAG, "Mat type: " + modified);
                 Log.e(TAG, "Bitmap type: " + mCacheBitmap.getWidth() + "*" + mCacheBitmap.getHeight());
@@ -412,6 +415,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
                 if (BuildConfig.DEBUG)
                     Log.d(TAG, "mStretch value: " + mScale);
+                long start = System.currentTimeMillis();
 
                 if (mScale != 0) {
                     canvas.drawBitmap(mCacheBitmap, new Rect(0,0,mCacheBitmap.getWidth(), mCacheBitmap.getHeight()),
@@ -426,6 +430,9 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                          (canvas.getWidth() - mCacheBitmap.getWidth()) / 2 + mCacheBitmap.getWidth(),
                          (canvas.getHeight() - mCacheBitmap.getHeight()) / 2 + mCacheBitmap.getHeight()), null);
                 }
+
+                long stop = System.currentTimeMillis();
+                Log.d(TAG, "绘制 bitmap 到屏幕上耗时：" + (stop - start) + " ms");
 
                 if (mFpsMeter != null) {
                     mFpsMeter.measure();

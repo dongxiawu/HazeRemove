@@ -16,15 +16,7 @@ void DeHaze::setFPS(int fps){
 
 DeHaze::DeHaze(int r, double t0, double omega, double eps) : r(r), t0(t0), omega(omega), eps(eps)
 {
-    for( int i = 0; i < 256; i++ )
-    {
-        look_up_table[i] = saturate_cast<uchar>(pow((float)(i/255.0), 0.7) * 255.0f);
-    }
-    lookUpTable = Mat(1, 256, CV_8U);
-    uchar* p = lookUpTable.ptr();
-    for( int i = 0; i < 256; ++i){
-        p[i] = look_up_table[i];
-    }
+    initGammaLookUpTable(0.7);
 
 }
 
@@ -247,9 +239,18 @@ cv::Mat DeHaze::recover(const cv::Mat& I, const cv::Mat& transmission,
 
     start = clock();
     //pow(recover,0.7,recover);//3ms gamma矫正
-    LUT(recover,lookUpTable,recover);
+    LUT(recover,mGammaLookUpTable,recover);
     stop = clock();
     LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return recover;
+}
+
+void DeHaze::initGammaLookUpTable(double gamma){
+    mGammaLookUpTable = Mat(1, 256, CV_8U);
+    uchar* p = mGammaLookUpTable.ptr();
+    for( int i = 0; i < 256; ++i){
+        //计算并截断
+        p[i] = saturate_cast<uchar>(pow((i/255.0), gamma) * 255.0);
+    }
 }

@@ -25,6 +25,9 @@ public class DeHaze {
     private AtmosphericLight[] mAirLight;
     private int mAirLightIdx = 0;
 
+    private Mat[] mTransmission;
+    private int mTransmissionIdx =0;
+
     private Timer mAirLightTimer;
 
     public DeHaze(int r, double t0, double omega, double eps, int width, int height){
@@ -39,11 +42,15 @@ public class DeHaze {
         mAirLight[0] = new AtmosphericLight();
         mAirLight[1] = new AtmosphericLight();
 
+        mTransmission = new Mat[2];
+        mTransmission[0] = new Mat(height,width,CvType.CV_32FC1);
+        mTransmission[1] = new Mat(height,width,CvType.CV_32FC1);
+
         transmission = new Mat(height,width,CvType.CV_32FC1);
         recover = new Mat(height,width,CvType.CV_8UC4);
 
-        mAirLightTimer = new Timer();
-        mAirLightTimer.schedule(mAlightTask,0,2*1000);
+//        mAirLightTimer = new Timer();
+//        mAirLightTimer.schedule(mAlightTask,0,2*1000);
 
         n_createHazeRemoveModel(r,t0,omega,eps);
     }
@@ -70,22 +77,56 @@ public class DeHaze {
         n_deleteHazeRemoveModel();
 
         mAirLightTimer.cancel();
+
+        transmission.release();
+        recover.release();
+        orig.release();
     }
 
     public Mat videoHazeRemove(Mat origI){
 
         origI.convertTo(orig,CvType.CV_32F);
-
+        estimateAtmosphericLight(orig, mAirLight[mAirLightIdx]);
         estimateTransmission(orig, mAirLight[mAirLightIdx], transmission);
 
         recover(orig,transmission, mAirLight[mAirLightIdx]);
         return recover;
     }
 
-
     private class AtmosphericLight{
         float[] data = new float[3];
     }
+
+//    private Runnable mTransmissionWorker = new Runnable() {
+//        @Override
+//        public void run() {
+//            do {
+//                boolean hasFrame = false;
+//                synchronized (CameraPreview.this) {
+//                    try {
+//                        while (!mCameraFrameReady && !mStopThread) {
+//                            CameraPreview.this.wait();
+//                        }
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    if (mCameraFrameReady)
+//                    {
+//                        mChainIdx = 1 - mChainIdx;
+//                        mCameraFrameReady = false;
+//                        hasFrame = true;
+//                    }
+//                }
+//
+//                //
+//                if (!mStopThread && hasFrame) {
+//                    if (!mFrameChain[1 - mChainIdx].empty()) {
+//                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);
+//                    }
+//                }
+//            } while (!mStopThread);
+//        }
+//    };
 
     private TimerTask mAlightTask = new TimerTask() {
         @Override

@@ -9,12 +9,14 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -115,49 +117,7 @@ public class CameraFragment extends Fragment {
 //                Mat rgba = inputFrame.rgba().clone();
                 Mat rgba = inputFrame.rgba();
                 Mat recover = deHaze.videoHazeRemove(rgba);
-//                float[] a = new float[3];
-//                new DeHaze(7,0.1,0.95,10E-6,480,864)
-//                        .estimateAtmosphericLight(rgba,a);
 
-
-//                synchronized (origMatQueue){
-//                    origMatQueue.add(new MyMat(rgba,System.currentTimeMillis()));
-//                }
-//
-//                executors.execute(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        MyMat orig = null;
-//                        synchronized (origMatQueue){
-//                            if (!origMatQueue.isEmpty()){
-//                                orig = origMatQueue.poll();
-//                            }
-//                        }
-//                        if (orig != null){
-//                            nativeProcessFrame(orig.getMat().getNativeObjAddr());
-//                            synchronized (resultMatQueue){
-//                                resultMatQueue.add(orig);
-//                            }
-//                        }
-//                    }
-//                });
-//
-//                synchronized (resultMatQueue){
-//                    Log.d(TAG, "resultMatQueue size:" + resultMatQueue.size());
-//                    MyMat myMat = resultMatQueue.poll();
-//                    if (myMat != null){
-//                        if (myMat.getTime() > lastFrameTime){
-//                            lastFrameTime = myMat.getTime();
-//                            Log.d(TAG, "onCameraFrame: " + lastFrameTime);
-//                            return myMat.getMat();
-//                        }
-//                    }
-//                    return null;
-//                }
-
-//                nativeProcessFrame(rgba.getNativeObjAddr());
-
-//                return rgba;
                 return recover;
             }
         });

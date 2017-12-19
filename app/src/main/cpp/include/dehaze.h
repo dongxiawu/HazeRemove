@@ -38,7 +38,7 @@ private:
 //    cv::Mat estimateTransmissionVideo();
 //    cv::Mat recover();
 
-
+    void initGammaLookUpTable(double gamma);
     cv::Vec3f estimateAtmosphericLightVideo(const cv::Mat& I);
     cv::Mat estimateTransmissionVideo(const cv::Mat& I, cv::Vec3f atmosphericLight);
 
@@ -49,10 +49,7 @@ private:
     double omega;
     double eps;
 
-
-    unsigned char look_up_table[256];
-
-    cv::Mat lookUpTable;
+    cv::Mat mGammaLookUpTable;
 
 //    cv::Mat I;
 //    cv::Mat I_YUV;
