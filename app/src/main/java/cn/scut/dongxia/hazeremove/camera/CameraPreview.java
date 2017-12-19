@@ -1,40 +1,22 @@
 package cn.scut.dongxia.hazeremove.camera;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.res.TypedArray;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.ImageFormat;
-import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.Build;
-import android.support.annotation.IntDef;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Size;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.view.ViewGroup.LayoutParams;
 
-import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 
 import cn.scut.dongxia.hazeremove.BuildConfig;
-import cn.scut.dongxia.hazeremove.R;
 
 public class CameraPreview extends AbsCameraBridgeView implements Camera.PreviewCallback{
 
@@ -43,12 +25,13 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
     private static final int MAGIC_TEXTURE_ID = 10;
 
     private byte mBuffer[];
-    private Mat[] mFrameChain;
-    private int mChainIdx = 0;
+//    private Mat[] mFrameChain;
+//    private int mChainIdx = 0;
     private Thread mThread;
     private boolean mStopThread;
 
     protected JavaCameraFrame[] mCameraFrame;
+    private int mFrameIdx = 0;
     private SurfaceTexture mSurfaceTexture;
     private int mPreviewFormat = ImageFormat.NV21;
 
@@ -88,18 +71,45 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
             return mRgba;
         }
 
-        public JavaCameraFrame(Mat Yuv420sp, int width, int height) {
+//        public JavaCameraFrame(Mat Yuv420sp, int width, int height) {
+//            super();
+//            mWidth = width;
+//            mHeight = height;
+//            mYuvFrameData = Yuv420sp;
+//            mRgba = new Mat();
+//        }
+
+        public JavaCameraFrame(int width, int height) {
             super();
             mWidth = width;
             mHeight = height;
-            mYuvFrameData = Yuv420sp;
+            mYuvFrameData = new Mat(mFrameHeight + (mFrameHeight/2),
+                    mFrameWidth, CvType.CV_8UC1);
             mRgba = new Mat();
         }
 
+        public boolean empty(){
+            return origFrameData == null;
+        }
+
+        @Override
+        public void putOrigData(byte[] frameData){
+            origFrameData = frameData;
+            mYuvFrameData.put(0,0,frameData);
+        }
+
+        @Override
+        public byte[] getOrigData(){
+            return origFrameData;
+        }
+
         public void release() {
+            origFrameData = null;
+            mYuvFrameData.release();
             mRgba.release();
         }
 
+        private byte[] origFrameData;
         private Mat mYuvFrameData;
         private Mat mRgba;
         private int mWidth;
@@ -224,8 +234,8 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
                     else
                         mScale = 0;
 
-                    if (mFpsMessage != null) {
-                        mFpsMessage.setResolution(mFrameWidth, mFrameHeight);
+                    if (mFpsMeter != null) {
+                        mFpsMeter.setResolution(mFrameWidth, mFrameHeight);
                     }
 
                     int size = mFrameWidth * mFrameHeight;
@@ -235,15 +245,18 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
                     mCamera.addCallbackBuffer(mBuffer);
                     mCamera.setPreviewCallbackWithBuffer(this);
 
-                    mFrameChain = new Mat[2];
-                    mFrameChain[0] = new Mat(mFrameHeight + (mFrameHeight/2), mFrameWidth, CvType.CV_8UC1);
-                    mFrameChain[1] = new Mat(mFrameHeight + (mFrameHeight/2), mFrameWidth, CvType.CV_8UC1);
+//                    mFrameChain = new Mat[2];
+//                    mFrameChain[0] = new Mat(mFrameHeight + (mFrameHeight/2), mFrameWidth, CvType.CV_8UC1);
+//                    mFrameChain[1] = new Mat(mFrameHeight + (mFrameHeight/2), mFrameWidth, CvType.CV_8UC1);
 
                     AllocateCache();
 
+//                    mCameraFrame = new JavaCameraFrame[2];
+//                    mCameraFrame[0] = new JavaCameraFrame(mFrameChain[0], mFrameWidth, mFrameHeight);
+//                    mCameraFrame[1] = new JavaCameraFrame(mFrameChain[1], mFrameWidth, mFrameHeight);
                     mCameraFrame = new JavaCameraFrame[2];
-                    mCameraFrame[0] = new JavaCameraFrame(mFrameChain[0], mFrameWidth, mFrameHeight);
-                    mCameraFrame[1] = new JavaCameraFrame(mFrameChain[1], mFrameWidth, mFrameHeight);
+                    mCameraFrame[0] = new JavaCameraFrame(mFrameWidth, mFrameHeight);
+                    mCameraFrame[1] = new JavaCameraFrame(mFrameWidth, mFrameHeight);
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                         mSurfaceTexture = new SurfaceTexture(MAGIC_TEXTURE_ID);
@@ -277,10 +290,10 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
                 mCamera.release();
             }
             mCamera = null;
-            if (mFrameChain != null) {
-                mFrameChain[0].release();
-                mFrameChain[1].release();
-            }
+//            if (mFrameChain != null) {
+//                mFrameChain[0].release();
+//                mFrameChain[1].release();
+//            }
             if (mCameraFrame != null) {
                 mCameraFrame[0].release();
                 mCameraFrame[1].release();
@@ -345,7 +358,8 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
         if (BuildConfig.DEBUG)
             Log.d(TAG, "Preview Frame received. Frame size: " + frame.length);
         synchronized (this) {
-            mFrameChain[mChainIdx].put(0, 0, frame);
+            mCameraFrame[mFrameIdx].putOrigData(frame);
+//            mFrameChain[mChainIdx].put(0, 0, frame);
             mCameraFrameReady = true;
             this.notify();
         }
@@ -370,7 +384,8 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
                     }
                     if (mCameraFrameReady)
                     {
-                        mChainIdx = 1 - mChainIdx;
+                        mFrameIdx = 1 - mFrameIdx;
+//                        mChainIdx = 1 - mChainIdx;
                         mCameraFrameReady = false;
                         hasFrame = true;
                     }
@@ -378,46 +393,17 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
 
                 //
                 if (!mStopThread && hasFrame) {
-                    if (!mFrameChain[1 - mChainIdx].empty()) {
-                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);
+
+                    if (!mCameraFrame[1 - mFrameIdx].empty()) {
+                        deliverAndDrawFrame(mCameraFrame[1 - mFrameIdx]);
                     }
+//
+//                    if (!mFrameChain[1 - mChainIdx].empty()) {
+//                        deliverAndDrawFrame(mCameraFrame[1 - mChainIdx]);
+//                    }
                 }
             } while (!mStopThread);
             Log.d(TAG, "Finish processing thread");
         }
     }
-
-
-//    private final Queue<Mat> CameraFrameQueue = new LinkedList<>();
-//
-//    private class DrawFrameWorker implements Runnable {
-//
-//        @Override
-//        public void run() {
-//            do {
-//                Mat newFrame = null;
-//                synchronized (CameraFrameQueue){
-//                    try {
-//                        while (CameraFrameQueue.isEmpty() && !mStopThread){
-//                            CameraFrameQueue.wait();
-//                        }
-//                    } catch (InterruptedException e){
-//                        e.printStackTrace();
-//                        Log.d(TAG, "CameraFrameQueue is Interrupted");
-//                    }
-//
-//                    if (!CameraFrameQueue.isEmpty()){
-//                        newFrame = CameraFrameQueue.poll();
-//                    }
-//
-//                }
-//
-//                if (newFrame != null){
-//                    drawFrame(newFrame);
-//                }
-//
-//            } while (!mStopThread);
-//            Log.d(TAG, "Finish processing thread");
-//        }
-//    }
 }

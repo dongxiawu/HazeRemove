@@ -9,27 +9,24 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 
-import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.JavaCameraView;
 import org.opencv.core.Mat;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import cn.scut.dongxia.hazeremove.camera.AbsCameraBridgeView;
+import cn.scut.dongxia.hazeremove.camera.CameraPreview;
 import cn.scut.dongxia.hazeremove.dehaze.DeHaze;
 
 
@@ -43,8 +40,8 @@ public class CameraFragment extends Fragment {
     private long lastFrameTime = 0;
 
     //Widgets
-//    private CameraPreview mCameraView;
-    private JavaCameraView mCameraView;
+    private CameraPreview mCameraView;
+//    private JavaCameraView mCameraView;
 
     private Queue<MyMat> origMatQueue;
     private Queue<MyMat> resultMatQueue;
@@ -99,28 +96,50 @@ public class CameraFragment extends Fragment {
 
         mCameraView.enableView();
         mCameraView.enableFpsMeter();
-        mCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
+        mCameraView.setCameraViewListener(new AbsCameraBridgeView.CameraViewListener() {
             @Override
             public void onCameraViewStarted(int width, int height) {
-                nativeCreateHazeRemoveModel();
+//                nativeCreateHazeRemoveModel();
                 deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
             }
 
             @Override
             public void onCameraViewStopped() {
-                nativeDeleteHazeRemoveModel();
+//                nativeDeleteHazeRemoveModel();
                 deHaze.release();
             }
 
             @Override
-            public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-//                Mat rgba = inputFrame.rgba().clone();
+            public Mat onCameraFrame(AbsCameraBridgeView.CameraViewFrame inputFrame) {
                 Mat rgba = inputFrame.rgba();
+//                nativeProcessFrame(rgba.getNativeObjAddr());
                 Mat recover = deHaze.videoHazeRemove(rgba);
-
                 return recover;
+//                return rgba;
             }
         });
+//        mCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
+//            @Override
+//            public void onCameraViewStarted(int width, int height) {
+//                nativeCreateHazeRemoveModel();
+//                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
+//            }
+//
+//            @Override
+//            public void onCameraViewStopped() {
+//                nativeDeleteHazeRemoveModel();
+//                deHaze.release();
+//            }
+//
+//            @Override
+//            public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+////                Mat rgba = inputFrame.rgba().clone();
+//                Mat rgba = inputFrame.rgba();
+//                Mat recover = deHaze.videoHazeRemove(rgba);
+//
+//                return recover;
+//            }
+//        });
 
     }
 
@@ -148,7 +167,7 @@ public class CameraFragment extends Fragment {
     }
 
     private void initView(View root){
-        mCameraView = (JavaCameraView) root.findViewById(R.id.camera_view);
+        mCameraView = (CameraPreview) root.findViewById(R.id.camera_view);
         mCameraView.setMaxFrameSize(1920/2,1080/2);
         origMatQueue = new LinkedList<>();
         resultMatQueue = new LinkedList<>();

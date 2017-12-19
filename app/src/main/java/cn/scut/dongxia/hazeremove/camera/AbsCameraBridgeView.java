@@ -14,7 +14,6 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.support.annotation.IntDef;
-import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Size;
@@ -57,7 +56,7 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
 
     protected boolean mEnabled;
 
-    protected FpsMessage mFpsMessage = null;
+    protected FpsMeter mFpsMeter = null;
 
     @IntDef({CAMERA_ID_ANY,CAMERA_ID_BACK,CAMERA_ID_FRONT})
     @Retention(RetentionPolicy.SOURCE)
@@ -122,6 +121,10 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
          * This method returns single channel gray scale Mat with frame
          */
         public Mat gray();
+
+        public void putOrigData(byte[] frameData);
+
+        public byte[] getOrigData();
     };
 
 
@@ -146,10 +149,10 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
 
     public void surfaceCreated(SurfaceHolder holder) {
         /* Do nothing. Wait until surfaceChanged delivered */
-        synchronized(mSyncObject) {
-            mSurfaceExist = true;
-            checkCurrentState();
-        }
+//        synchronized(mSyncObject) {
+//            mSurfaceExist = true;
+//            checkCurrentState();
+//        }
     }
 
     public void surfaceDestroyed(SurfaceHolder holder) {
@@ -184,15 +187,15 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
     /**
      * This method enables label with fps value on the screen
      */
-    public void enableFpsMessage() {
-        if (mFpsMessage == null) {
-            mFpsMessage = new FpsMessage();
-            mFpsMessage.setResolution(mFrameWidth, mFrameHeight);
+    public void enableFpsMeter() {
+        if (mFpsMeter == null) {
+            mFpsMeter = new FpsMeter();
+            mFpsMeter.setResolution(mFrameWidth, mFrameHeight);
         }
     }
 
     public void disableFpsMessage() {
-        mFpsMessage = null;
+        mFpsMeter = null;
     }
 
     public void setCameraViewListener(CameraViewListener listener) {
@@ -351,9 +354,9 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
                                     (canvas.getHeight() - mCacheBitmap.getHeight()) / 2 + mCacheBitmap.getHeight()), null);
                 }
 
-                if (mFpsMessage != null) {
-                    mFpsMessage.measure();
-                    mFpsMessage.draw(canvas, 20, 30);
+                if (mFpsMeter != null) {
+                    mFpsMeter.measure();
+                    mFpsMeter.draw(canvas, 20, 30);
                 }
                 getHolder().unlockCanvasAndPost(canvas);
             }
@@ -412,58 +415,4 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
         return new Size(calcWidth, calcHeight);
     }
 
-
-
-    public void updateFrame(@NonNull Mat newFrame){
-//        synchronized (CameraFrameQueue){
-//            CameraFrameQueue.add(newFrame);
-//            CameraFrameQueue.notify();
-//        }
-    }
-
-
-    private void drawFrame(Mat newFrame){
-
-        boolean bmpValid = false;
-        if (newFrame != null) {
-            try {
-                Utils.matToBitmap(newFrame, mCacheBitmap);
-                bmpValid = true;
-            } catch(Exception e) {
-                Log.e(TAG, "Mat type: " + newFrame);
-                Log.e(TAG, "Bitmap type: " + mCacheBitmap.getWidth() + "*" + mCacheBitmap.getHeight());
-                Log.e(TAG, "Utils.matToBitmap() throws an exception: " + e.getMessage());
-                bmpValid = false;
-            }
-        }
-
-        if (bmpValid && mCacheBitmap != null) {
-            Canvas canvas = getHolder().lockCanvas();
-            if (canvas != null) {
-                canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
-                if (BuildConfig.DEBUG)
-                    Log.d(TAG, "mStretch value: " + mScale);
-
-                if (mScale != 0) {
-                    canvas.drawBitmap(mCacheBitmap, new Rect(0,0,mCacheBitmap.getWidth(), mCacheBitmap.getHeight()),
-                            new Rect((int)((canvas.getWidth() - mScale*mCacheBitmap.getWidth()) / 2),
-                                    (int)((canvas.getHeight() - mScale*mCacheBitmap.getHeight()) / 2),
-                                    (int)((canvas.getWidth() - mScale*mCacheBitmap.getWidth()) / 2 + mScale*mCacheBitmap.getWidth()),
-                                    (int)((canvas.getHeight() - mScale*mCacheBitmap.getHeight()) / 2 + mScale*mCacheBitmap.getHeight())), null);
-                } else {
-                    canvas.drawBitmap(mCacheBitmap, new Rect(0,0,mCacheBitmap.getWidth(), mCacheBitmap.getHeight()),
-                            new Rect((canvas.getWidth() - mCacheBitmap.getWidth()) / 2,
-                                    (canvas.getHeight() - mCacheBitmap.getHeight()) / 2,
-                                    (canvas.getWidth() - mCacheBitmap.getWidth()) / 2 + mCacheBitmap.getWidth(),
-                                    (canvas.getHeight() - mCacheBitmap.getHeight()) / 2 + mCacheBitmap.getHeight()), null);
-                }
-
-                if (mFpsMessage != null) {
-                    mFpsMessage.measure();
-                    mFpsMessage.draw(canvas, 20, 30);
-                }
-                getHolder().unlockCanvasAndPost(canvas);
-            }
-        }
-    }
 }

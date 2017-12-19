@@ -76,7 +76,7 @@ public class DeHaze {
     public void release(){
         n_deleteHazeRemoveModel();
 
-        mAirLightTimer.cancel();
+//        mAirLightTimer.cancel();
 
         transmission.release();
         recover.release();
