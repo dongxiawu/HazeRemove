@@ -2,7 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <fastguidedfilter.h>
 #include "dehaze.h"
-#include "darkchannel.h"
+//#include "darkchannel.h"
 #include "cn_scut_dongxia_hazeremove_dehaze_DeHaze.h"
 
 using namespace cv;
@@ -160,17 +160,17 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1deleteHa
  */
 JNIEXPORT jfloatArray JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1estimateAtmosphericLight
         (JNIEnv *env, jclass, jlong origRgbaAddr){
-    Mat &mRgba = *(Mat *) origRgbaAddr;
-    Vec3f a = deHaze->estimateAtmosphericLight(mRgba);
-
-    jfloatArray atmosphericLight = env->NewFloatArray(3);
-    jfloat *arr = env->GetFloatArrayElements(atmosphericLight,JNI_FALSE);
-    arr[0] = a[0];
-    arr[1] = a[1];
-    arr[2] = a[2];
-//    env->SetFloatArrayRegion(atmosphericLight,0,3,arr);
-    env->ReleaseFloatArrayElements(atmosphericLight,arr,JNI_COMMIT);
-    return atmosphericLight;
+//    Mat &mRgba = *(Mat *) origRgbaAddr;
+//    Vec3f a = deHaze->estimateAtmosphericLight(mRgba);
+//
+//    jfloatArray atmosphericLight = env->NewFloatArray(3);
+//    jfloat *arr = env->GetFloatArrayElements(atmosphericLight,JNI_FALSE);
+//    arr[0] = a[0];
+//    arr[1] = a[1];
+//    arr[2] = a[2];
+////    env->SetFloatArrayRegion(atmosphericLight,0,3,arr);
+//    env->ReleaseFloatArrayElements(atmosphericLight,arr,JNI_COMMIT);
+//    return atmosphericLight;
 }
 
 /*
@@ -181,15 +181,15 @@ JNIEXPORT jfloatArray JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1e
 JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1estimateTramsmission
         (JNIEnv *env, jclass, jlong origRgbaAddr, jfloatArray aLight, jlong transmissionAddr){
 
-    Mat &mRgba = *(Mat *) origRgbaAddr;
-    Mat &transmission = *(Mat *) transmissionAddr;
-    jfloat *arr = env->GetFloatArrayElements(aLight,JNI_FALSE);
-    Vec3f atmosphericLight;
-    atmosphericLight[0] = arr[0];
-    atmosphericLight[1] = arr[1];
-    atmosphericLight[2] = arr[2];
-
-    transmission = deHaze->estimateTransmission(mRgba,atmosphericLight);
+//    Mat &mRgba = *(Mat *) origRgbaAddr;
+//    Mat &transmission = *(Mat *) transmissionAddr;
+//    jfloat *arr = env->GetFloatArrayElements(aLight,JNI_FALSE);
+//    Vec3f atmosphericLight;
+//    atmosphericLight[0] = arr[0];
+//    atmosphericLight[1] = arr[1];
+//    atmosphericLight[2] = arr[2];
+//
+//    transmission = deHaze->estimateTransmission(mRgba,atmosphericLight);
 
 }
 
@@ -202,16 +202,16 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1recover
         (JNIEnv *env, jclass clazz, jlong origRgbaAddr, jlong transmissionAddr,
          jfloatArray aLight, jlong recoverAddr){
 
-    Mat &mRgba = *(Mat *) origRgbaAddr;
-    Mat &transmission = *(Mat *) transmissionAddr;
-    Mat &recover = *(Mat *) recoverAddr;
-    jfloat *arr = env->GetFloatArrayElements(aLight,JNI_FALSE);
-    Vec3f atmosphericLight;
-    atmosphericLight[0] = arr[0];
-    atmosphericLight[1] = arr[1];
-    atmosphericLight[2] = arr[2];
-
-    recover = deHaze->recover(mRgba,transmission,atmosphericLight);
+//    Mat &mRgba = *(Mat *) origRgbaAddr;
+//    Mat &transmission = *(Mat *) transmissionAddr;
+//    Mat &recover = *(Mat *) recoverAddr;
+//    jfloat *arr = env->GetFloatArrayElements(aLight,JNI_FALSE);
+//    Vec3f atmosphericLight;
+//    atmosphericLight[0] = arr[0];
+//    atmosphericLight[1] = arr[1];
+//    atmosphericLight[2] = arr[2];
+//
+//    recover = deHaze->recover(mRgba,transmission,atmosphericLight);
 }
 
 /*
@@ -224,15 +224,15 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProc
 
     jbyte  *frameYuv = env->GetByteArrayElements(frame, JNI_FALSE);
 
-    Mat yChannel(height,width,CV_8UC1,frameYuv);
-
-    Mat yuvChannel(height + (height/2),width,CV_8UC1,frameYuv);
-
-    Mat rgba;
-    cvtColor(yuvChannel,rgba,COLOR_YUV2RGBA_NV21,4);
+//    Mat yChannel(height,width,CV_8UC1,frameYuv);
+//
+//    Mat yuvChannel(height + (height/2),width,CV_8UC1,frameYuv);
+//
+//    Mat rgba;
+//    cvtColor(yuvChannel,rgba,COLOR_YUV2RGBA_NV21,4);
 
     Mat &recover = *(Mat *) recoverAddr;
 
-    recover = deHaze->videoHazeRemove(rgba);
-
+    recover = deHaze->videoHazeRemove(frameYuv,0,width,height);
+//    recover = deHaze->videoHazeRemove(rgba);
 }
