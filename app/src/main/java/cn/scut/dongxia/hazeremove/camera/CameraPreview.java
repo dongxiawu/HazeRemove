@@ -71,14 +71,6 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
             return mRgba;
         }
 
-//        public JavaCameraFrame(Mat Yuv420sp, int width, int height) {
-//            super();
-//            mWidth = width;
-//            mHeight = height;
-//            mYuvFrameData = Yuv420sp;
-//            mRgba = new Mat();
-//        }
-
         public JavaCameraFrame(int width, int height) {
             super();
             mWidth = width;
@@ -117,6 +109,11 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
         @Override
         public int getHeight() {
             return mHeight;
+        }
+
+        @Override
+        public int getOrigDataFormat() {
+            return mPreviewFormat;
         }
 
         private byte[] origFrameData;

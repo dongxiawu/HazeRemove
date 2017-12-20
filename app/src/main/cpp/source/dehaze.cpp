@@ -25,6 +25,11 @@ DeHaze::DeHaze(int r, double t0, double omega, double eps) : r(r), t0(t0), omega
 
 }
 
+DeHaze::DeHaze(int r, double t0, double omega, double eps, int width, int height)
+        : r(r), t0(t0), omega(omega), eps(eps), width(width), height(height){
+    initGammaLookUpTable(0.7);
+}
+
 cv::Mat DeHaze::imageHazeRemove(const cv::Mat& origI)
 {
 //    CV_Assert(I.channels() == 3);
@@ -77,6 +82,14 @@ cv::Mat DeHaze::videoHazeRemove(const cv::Mat& origI){
 }
 
 cv::Mat DeHaze::videoHazeRemove(jbyte* data, int format, int width, int height){
+    preProcessOrigFrame(data, format, width, height);
+
+    estimateAtmosphericLightVideo();
+    estimateTransmissionVideo();
+    return recover();
+}
+
+cv::Mat DeHaze::videoHazeRemove(jbyte* data, int format){
     preProcessOrigFrame(data, format, width, height);
 
     estimateAtmosphericLightVideo();
@@ -227,6 +240,13 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
 
     Mat yuvChannel(height + (height/2), width, CV_8UC1, data);
 
+    if (format == YUV_NV21){
+        cvtColor(yuvChannel, origRgba, COLOR_YUV2RGBA_NV21, 4);
+    } else if(format == YUV_YV12){
+        cvtColor(yuvChannel, origRgba, COLOR_YUV2RGB_I420, 4);
+    } else{
+
+    }
     cvtColor(yuvChannel, origRgba, COLOR_YUV2RGBA_NV21, 4);
     stop = clock();
     LOGD("yuv 转换为 rgba 耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);

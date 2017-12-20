@@ -14,10 +14,14 @@
 #define LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG, __VA_ARGS__)
 #define LOGF(...)  __android_log_print(ANDROID_LOG_FATAL,LOG_TAG, __VA_ARGS__)
 
+#define YUV_NV21 0x11
+#define YUV_YV12 0x32315659
+
 class DeHaze
 {
 public:
     DeHaze(int r, double t0, double omega, double eps);//构造函数不能是虚函数
+    DeHaze(int r, double t0, double omega, double eps, int width, int height);//构造函数不能是虚函数
     ~DeHaze() = default;
 
     cv::Mat imageHazeRemove(const cv::Mat& I);
@@ -26,12 +30,10 @@ public:
 
     cv::Mat videoHazeRemove(jbyte* data, int format, int width, int height);
 
+    cv::Mat videoHazeRemove(jbyte* data, int format);
+
     void setFPS(int fps);
 
-//    cv::Vec3f estimateAtmosphericLight(const cv::Mat& I);
-//    cv::Mat estimateTransmission(const cv::Mat& I, cv::Vec3f atmosphericLight);
-//    cv::Mat recover(const cv::Mat& I, const cv::Mat& transmission,
-//                    cv::Vec3f atmosphericLight);
 private:
     cv::Vec3f estimateAtmosphericLight();
 
@@ -47,10 +49,6 @@ private:
 
     void preProcessOrigFrame(jbyte* const data, int format, int width, int height);
 
-//    cv::Vec3f estimateAtmosphericLightVideo(const cv::Mat& I);
-//
-//    cv::Mat estimateTransmissionVideo(const cv::Mat& I, cv::Vec3f atmosphericLight);
-
 private:
     //common
     int r;
@@ -65,10 +63,7 @@ private:
     std::vector<cv::Mat> origRgbaChannels;
     cv::Mat minChannel;
     cv::Mat darkChannel;
-//    cv::Mat I;
-//    cv::Mat I_YUV;
     cv::Vec3f atmosphericLight = cv::Vec3f(0,0,0);
-//    cv::Mat rough_transmission;
     cv::Mat transmission;
 
     //video
@@ -76,6 +71,8 @@ private:
     std::queue<cv::Vec3f> atmosphericLightQueue;
 
     int fps;
+    int width;
+    int height;
 
 };
 

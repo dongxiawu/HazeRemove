@@ -18,18 +18,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import cn.scut.dongxia.hazeremove.camera.AbsCameraBridgeView;
 import cn.scut.dongxia.hazeremove.camera.CameraPreview;
 import cn.scut.dongxia.hazeremove.dehaze.DeHaze;
-
 
 public class CameraFragment extends Fragment {
     private static final String TAG = "CameraFragment";
@@ -38,17 +31,10 @@ public class CameraFragment extends Fragment {
 
     private static final String FRAGMENT_DIALOG = "dialog";
 
-    private long lastFrameTime = 0;
-
     //Widgets
     private CameraPreview mCameraView;
-//    private JavaCameraView mCameraView;
 
     private DeHaze deHaze;
-
-    private Mat recover;
-
-    private ExecutorService executors;
 
     public static CameraFragment newInstance(){
         return new CameraFragment();
@@ -90,60 +76,26 @@ public class CameraFragment extends Fragment {
             requestCameraPermission();
         }
 
-//        executors = Executors.newCachedThreadPool();
-        executors = Executors.newFixedThreadPool(6);
-//        executors = Executors.newSingleThreadExecutor();
-
         mCameraView.enableView();
         mCameraView.enableFpsMeter();
         mCameraView.setCameraViewListener(new AbsCameraBridgeView.CameraViewListener() {
             @Override
             public void onCameraViewStarted(int width, int height) {
-                nativeCreateHazeRemoveModel();
-//                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
-                recover = new Mat(height,width, CvType.CV_8UC4);
+                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
             }
 
             @Override
             public void onCameraViewStopped() {
-                nativeDeleteHazeRemoveModel();
-//                deHaze.release();
+                deHaze.release();
+                deHaze = null;
             }
 
             @Override
             public Mat onCameraFrame(AbsCameraBridgeView.CameraViewFrame inputFrame) {
-//                Mat rgba = inputFrame.rgba();
-//                nativeProcessFrame(rgba.getNativeObjAddr());
-//                Mat recover = deHaze.videoHazeRemove(rgba);
-                nativeProcessFrame(inputFrame.getOrigData(),inputFrame.getWidth(),
-                        inputFrame.getHeight(),recover.getNativeObjAddr());
-                return recover;
-//                return rgba;
+
+                return deHaze.videoHazeRemove(inputFrame.getOrigData(),inputFrame.getOrigDataFormat());
             }
         });
-//        mCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
-//            @Override
-//            public void onCameraViewStarted(int width, int height) {
-//                nativeCreateHazeRemoveModel();
-//                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
-//            }
-//
-//            @Override
-//            public void onCameraViewStopped() {
-//                nativeDeleteHazeRemoveModel();
-//                deHaze.release();
-//            }
-//
-//            @Override
-//            public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-////                Mat rgba = inputFrame.rgba().clone();
-//                Mat rgba = inputFrame.rgba();
-//                Mat recover = deHaze.videoHazeRemove(rgba);
-//
-//                return recover;
-//            }
-//        });
-
     }
 
     @Override
@@ -151,7 +103,6 @@ public class CameraFragment extends Fragment {
         Log.d(TAG, "onPause: ");
         super.onPause();
         mCameraView.disableView();
-        executors.shutdown();
     }
 
     @Override
@@ -206,8 +157,6 @@ public class CameraFragment extends Fragment {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
-
-
 
     public static class ErrorDialog extends DialogFragment {
 
@@ -264,15 +213,5 @@ public class CameraFragment extends Fragment {
                     .create();
         }
     }
-
-//    public native void nativeProcessFrame(long matAddrRgba);
-//
-//    public native void nativeProcessFrame(long origAddr, long resultAddr);
-
-    private native void nativeCreateHazeRemoveModel();
-
-    private native void nativeDeleteHazeRemoveModel();
-
-    private native static void nativeProcessFrame(byte[] frame, int width, int height, long recoverAddr);
 
 }

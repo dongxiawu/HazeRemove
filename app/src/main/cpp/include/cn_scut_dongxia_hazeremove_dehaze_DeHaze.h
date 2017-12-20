@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     cn_scut_dongxia_hazeremove_dehaze_DeHaze
  * Method:    n_createHazeRemoveModel
- * Signature: (IDDD)V
+ * Signature: (IDDDII)V
  */
 JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1createHazeRemoveModel
-        (JNIEnv *, jclass, jint, jdouble, jdouble, jdouble);
+        (JNIEnv *, jclass, jint, jdouble, jdouble, jdouble, jint, jint);
 
 /*
  * Class:     cn_scut_dongxia_hazeremove_dehaze_DeHaze
@@ -25,27 +25,11 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1deleteHa
 
 /*
  * Class:     cn_scut_dongxia_hazeremove_dehaze_DeHaze
- * Method:    n_estimateAtmosphericLight
- * Signature: (J)[F
+ * Method:    n_videoHazeRemove
+ * Signature: ([BIJ)V
  */
-JNIEXPORT jfloatArray JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1estimateAtmosphericLight
-        (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     cn_scut_dongxia_hazeremove_dehaze_DeHaze
- * Method:    n_estimateTramsmission
- * Signature: (J[FJ)V
- */
-JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1estimateTramsmission
-        (JNIEnv *, jclass, jlong, jfloatArray, jlong);
-
-/*
- * Class:     cn_scut_dongxia_hazeremove_dehaze_DeHaze
- * Method:    n_recover
- * Signature: (JJ[FJ)V
- */
-JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1recover
-        (JNIEnv *, jclass, jlong, jlong, jfloatArray, jlong);
+JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1videoHazeRemove
+        (JNIEnv *, jclass, jbyteArray, jint, jlong);
 
 #ifdef __cplusplus
 }
