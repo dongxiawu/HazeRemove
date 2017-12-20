@@ -109,6 +109,16 @@ public class CameraPreview extends AbsCameraBridgeView implements Camera.Preview
             mRgba.release();
         }
 
+        @Override
+        public int getWidth() {
+            return mWidth;
+        }
+
+        @Override
+        public int getHeight() {
+            return mHeight;
+        }
+
         private byte[] origFrameData;
         private Mat mYuvFrameData;
         private Mat mRgba;

@@ -125,6 +125,10 @@ public abstract class AbsCameraBridgeView extends SurfaceView implements Surface
         public void putOrigData(byte[] frameData);
 
         public byte[] getOrigData();
+
+        public int getWidth();
+
+        public int getHeight();
     };
 
 

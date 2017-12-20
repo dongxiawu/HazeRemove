@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import java.util.LinkedList;
@@ -43,10 +44,9 @@ public class CameraFragment extends Fragment {
     private CameraPreview mCameraView;
 //    private JavaCameraView mCameraView;
 
-    private Queue<MyMat> origMatQueue;
-    private Queue<MyMat> resultMatQueue;
-
     private DeHaze deHaze;
+
+    private Mat recover;
 
     private ExecutorService executors;
 
@@ -99,21 +99,24 @@ public class CameraFragment extends Fragment {
         mCameraView.setCameraViewListener(new AbsCameraBridgeView.CameraViewListener() {
             @Override
             public void onCameraViewStarted(int width, int height) {
-//                nativeCreateHazeRemoveModel();
-                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
+                nativeCreateHazeRemoveModel();
+//                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
+                recover = new Mat(height,width, CvType.CV_8UC4);
             }
 
             @Override
             public void onCameraViewStopped() {
-//                nativeDeleteHazeRemoveModel();
-                deHaze.release();
+                nativeDeleteHazeRemoveModel();
+//                deHaze.release();
             }
 
             @Override
             public Mat onCameraFrame(AbsCameraBridgeView.CameraViewFrame inputFrame) {
-                Mat rgba = inputFrame.rgba();
+//                Mat rgba = inputFrame.rgba();
 //                nativeProcessFrame(rgba.getNativeObjAddr());
-                Mat recover = deHaze.videoHazeRemove(rgba);
+//                Mat recover = deHaze.videoHazeRemove(rgba);
+                nativeProcessFrame(inputFrame.getOrigData(),inputFrame.getWidth(),
+                        inputFrame.getHeight(),recover.getNativeObjAddr());
                 return recover;
 //                return rgba;
             }
@@ -169,8 +172,6 @@ public class CameraFragment extends Fragment {
     private void initView(View root){
         mCameraView = (CameraPreview) root.findViewById(R.id.camera_view);
         mCameraView.setMaxFrameSize(1920/2,1080/2);
-        origMatQueue = new LinkedList<>();
-        resultMatQueue = new LinkedList<>();
     }
 
     /**
@@ -264,29 +265,14 @@ public class CameraFragment extends Fragment {
         }
     }
 
-    public native void nativeProcessFrame(long matAddrRgba);
-
-    public native void nativeProcessFrame(long origAddr, long resultAddr);
+//    public native void nativeProcessFrame(long matAddrRgba);
+//
+//    public native void nativeProcessFrame(long origAddr, long resultAddr);
 
     private native void nativeCreateHazeRemoveModel();
 
     private native void nativeDeleteHazeRemoveModel();
 
-    public class MyMat{
-        private Mat mat;
-        private long time;
+    private native static void nativeProcessFrame(byte[] frame, int width, int height, long recoverAddr);
 
-        public MyMat(Mat mat, long time){
-            this.mat = mat;
-            this.time = time;
-        }
-
-        public long getTime() {
-            return time;
-        }
-
-        public Mat getMat() {
-            return mat;
-        }
-    }
 }

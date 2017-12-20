@@ -14,8 +14,8 @@ extern  "C" {
  * Method:    nativeProcessFrame
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame
-        (JNIEnv *, jobject, jlong);
+//JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame
+//        (JNIEnv *, jobject, jlong);
 
 /*
  * Class:     cn_scut_dongxia_hazeremove_CameraFragment
@@ -33,17 +33,25 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeCrea
 JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeDeleteHazeRemoveModel
         (JNIEnv *, jobject);
 
+/*
+ * Class:     cn_scut_dongxia_hazeremove_CameraFragment
+ * Method:    nativeProcessFrame
+ * Signature: ([BIIJ)V
+ */
+JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame___3BIIJ
+        (JNIEnv *, jclass, jbyteArray, jint, jint, jlong);
+
 }
 
 DeHaze *deHaze;
 
-
-JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame
-        (JNIEnv *env, jobject, jlong addrRgba){
-    Mat &mRgb = *(Mat *) addrRgba;
-
-    mRgb = (*deHaze).videoHazeRemove(mRgb);
-}
+//
+//JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame
+//        (JNIEnv *env, jobject, jlong addrRgba){
+//    Mat &mRgb = *(Mat *) addrRgba;
+//
+//    mRgb = (*deHaze).videoHazeRemove(mRgb);
+//}
 
 JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeCreateHazeRemoveModel
         (JNIEnv *, jobject){
@@ -204,4 +212,27 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1recover
     atmosphericLight[2] = arr[2];
 
     recover = deHaze->recover(mRgba,transmission,atmosphericLight);
+}
+
+/*
+ * Class:     cn_scut_dongxia_hazeremove_CameraFragment
+ * Method:    nativeProcessFrame
+ * Signature: ([BIIJ)V
+ */
+JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeProcessFrame___3BIIJ
+        (JNIEnv *env, jclass clazz, jbyteArray frame, jint width, jint height, jlong recoverAddr){
+
+    jbyte  *frameYuv = env->GetByteArrayElements(frame, JNI_FALSE);
+
+    Mat yChannel(height,width,CV_8UC1,frameYuv);
+
+    Mat yuvChannel(height + (height/2),width,CV_8UC1,frameYuv);
+
+    Mat rgba;
+    cvtColor(yuvChannel,rgba,COLOR_YUV2RGBA_NV21,4);
+
+    Mat &recover = *(Mat *) recoverAddr;
+
+    recover = deHaze->videoHazeRemove(rgba);
+
 }
