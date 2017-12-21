@@ -70,7 +70,7 @@ cv::Mat DeHaze::videoHazeRemove(const cv::Mat& origI){
 //    Mat yuv;
 //    cvtColor(origRgba,yuv,COLOR_RGBA2YUV_IYUV);
 //    split(yuv,yuvChannel);
-    origY = origRgbaChannels[0];
+//    origY = origRgbaChannels[0];
 
     minChannel = calcMinChannel(origRgbaChannels);
 
@@ -200,35 +200,28 @@ cv::Mat DeHaze::recover(){
     double stop;
 
     start = clock();
-    vector<Mat> channels;
-    split(origRgba,channels);
-    stop = clock();
-    LOGD("分离原始图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-    start = clock();
-    Mat t = transmission;
+    origRgbaChannels[0] = (origRgbaChannels[0]-atmosphericLight[0])/transmission + atmosphericLight[0];
+    origRgbaChannels[1] = (origRgbaChannels[1]-atmosphericLight[1])/transmission + atmosphericLight[1];
+    origRgbaChannels[2] = (origRgbaChannels[2]-atmosphericLight[2])/transmission + atmosphericLight[2];
 
-    channels[0] = (channels[0]-atmosphericLight[0])/t + atmosphericLight[0];
-    channels[1] = (channels[1]-atmosphericLight[1])/t + atmosphericLight[1];
-    channels[2] = (channels[2]-atmosphericLight[2])/t + atmosphericLight[2];
-    Mat recover;
-    merge(channels,recover);
+    merge(origRgbaChannels,recoverMat);
 
     stop = clock();
     LOGD("粗略恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
-    recover.convertTo(recover,CV_8U);
+    recoverMat.convertTo(recoverMat,CV_8U);
     stop = clock();
     LOGD("转化成8位图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
     //pow(recover,0.7,recover);//3ms gamma矫正
-    LUT(recover,mGammaLookUpTable,recover);
+    LUT(recoverMat,mGammaLookUpTable,recoverMat);
     stop = clock();
     LOGD("gamma矫正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
-    return recover;
+    return recoverMat;
 }
 
 void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int height){
@@ -247,7 +240,7 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
     } else{
 
     }
-    cvtColor(yuvChannel, origRgba, COLOR_YUV2RGBA_NV21, 4);
+
     stop = clock();
     LOGD("yuv 转换为 rgba 耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
@@ -262,7 +255,6 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
     split(origRgba,origRgbaChannels);
     stop = clock();
     LOGD("分离原始图片通道耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
-    //origY = origRgbaChannels[0];
 
     start = clock();
     minChannel = calcMinChannel(origRgbaChannels);
@@ -288,12 +280,10 @@ void DeHaze::initGammaLookUpTable(double gamma){
 //静态代表只有本文件内可以用
 static cv::Mat calcMinChannel(const vector<Mat>& channels) {
     CV_Assert(channels.size() > 0);
-
-    Mat minChannel = channels[0];
+    Mat minChannel = channels[0].clone();
     for(size_t i = 1;i<channels.size();i++){
         minChannel = min(minChannel,channels[i]);
     }
-
     return minChannel;
 }
 

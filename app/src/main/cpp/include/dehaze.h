@@ -65,6 +65,7 @@ private:
     cv::Mat darkChannel;
     cv::Vec3f atmosphericLight = cv::Vec3f(0,0,0);
     cv::Mat transmission;
+    cv::Mat recoverMat;
 
     //video
     cv::Vec3f atmosphericLightSum;
