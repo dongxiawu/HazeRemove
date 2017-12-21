@@ -137,22 +137,27 @@ cv::Vec3i DeHaze::estimateAtmosphericLight(){
 
 cv::Mat DeHaze::estimateTransmission(){
 
-    double start = clock();
+    double start;
     double stop;
 
-    Mat yNormalized = origY/(atmosphericLight[0]*0.299 +
-            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.114);
+    int yLight = ((atmosphericLight[0]*66 + atmosphericLight[1]*129
+                   + atmosphericLight[2]*25 +128) >>8) + 16;
+    Mat yNormalized = origY*255/yLight;
+//
+//    Mat yNormalized = origY/(atmosphericLight[0]*0.299 +
+//            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.114);
 
     start = clock();
     Mat darkChannel = calcDarkChannel(yNormalized,r);
-    transmission = 1.0 - omega * darkChannel;
+//    transmission = 1.0 - omega * darkChannel;
+    transmission = 255 - omega * darkChannel;
     stop = clock();
     LOGD("粗略透射率计算耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
     //透射率修正
-    float k = 0.3;
-    transmission = min(max(k/abs(1-darkChannel),1).mul(transmission),1);
+    int k = (int)0.3*255*255;
+    transmission = min(max(k/abs(255-darkChannel),255).mul(transmission),255*255)/255;
     stop = clock();
     LOGD("透射率修正耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
@@ -201,6 +206,7 @@ cv::Mat DeHaze::recover(){
 
     start = clock();
 
+    transmission.convertTo(transmission,CV_32F,1.0/255.0);
     vector<Mat> channels;
     split(origRgba,channels);
 
@@ -232,7 +238,7 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
     double stop;
 
     origY = Mat(height, width, CV_8UC1, data);
-    origY.convertTo(origY,CV_32F);
+    origY.convertTo(origY,CV_16U);//不能为CV_16S,否则会发生截断，恢复图片变得很暗
 
     Mat yuvChannel(height + (height/2), width, CV_8UC1, data);
 
@@ -303,6 +309,7 @@ static cv::Mat calcDarkChannel(const Mat& minChannel, int r) {
     Mat kernel = getStructuringElement(MORPH_RECT,Size(2*r+1,2*r+1));
 
     Mat darkChannel;
+    //这个方法格式只支持 CV_8U, CV_16U, CV_16S, CV_32F or CV_64F，不支持CV_32S
     erode(minChannel,darkChannel,kernel);
 
     return darkChannel;
