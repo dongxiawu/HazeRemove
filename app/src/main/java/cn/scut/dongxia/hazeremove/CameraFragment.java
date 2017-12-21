@@ -17,6 +17,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 
 import org.opencv.core.Mat;
 
@@ -34,7 +36,11 @@ public class CameraFragment extends Fragment {
     //Widgets
     private CameraPreview mCameraView;
 
-    private DeHaze deHaze;
+    private Switch mSwitch;
+
+    private DeHaze mDeHaze;
+
+    private boolean mDehazeSwitch;
 
     public static CameraFragment newInstance(){
         return new CameraFragment();
@@ -81,19 +87,22 @@ public class CameraFragment extends Fragment {
         mCameraView.setCameraViewListener(new AbsCameraBridgeView.CameraViewListener() {
             @Override
             public void onCameraViewStarted(int width, int height) {
-                deHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
+                mDeHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
             }
 
             @Override
             public void onCameraViewStopped() {
-                deHaze.release();
-                deHaze = null;
+                mDeHaze.release();
+                mDeHaze = null;
             }
 
             @Override
             public Mat onCameraFrame(AbsCameraBridgeView.CameraViewFrame inputFrame) {
-
-                return deHaze.videoHazeRemove(inputFrame.getOrigData(),inputFrame.getOrigDataFormat());
+                if (mDehazeSwitch){
+                    return mDeHaze.videoHazeRemove(inputFrame.getOrigData(),inputFrame.getOrigDataFormat());
+                }else {
+                    return inputFrame.rgba();
+                }
             }
         });
     }
@@ -123,6 +132,14 @@ public class CameraFragment extends Fragment {
     private void initView(View root){
         mCameraView = (CameraPreview) root.findViewById(R.id.camera_view);
         mCameraView.setMaxFrameSize(1920/2,1080/2);
+        mSwitch = (Switch) root.findViewById(R.id.dehaze_switch);
+        mDehazeSwitch = mSwitch.isChecked();
+        mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                mDehazeSwitch = isChecked;
+            }
+        });
     }
 
     /**
