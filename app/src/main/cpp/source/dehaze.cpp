@@ -98,7 +98,7 @@ cv::Mat DeHaze::videoHazeRemove(jbyte* data, int format){
 }
 
 //3-5ms
-cv::Vec3f DeHaze::estimateAtmosphericLight(){
+cv::Vec3i DeHaze::estimateAtmosphericLight(){
 
     double start = clock();
 
@@ -124,12 +124,12 @@ cv::Vec3f DeHaze::estimateAtmosphericLight(){
     cv::Scalar mean,std;
     meanStdDev(aimRoi,mean,std);
 
-    atmosphericLight[0] = static_cast<float> (mean.val[0]);
-    atmosphericLight[1] = static_cast<float> (mean.val[1]);
-    atmosphericLight[2] = static_cast<float> (mean.val[2]);
+    atmosphericLight[0] = static_cast<int> (mean.val[0]);
+    atmosphericLight[1] = static_cast<int> (mean.val[1]);
+    atmosphericLight[2] = static_cast<int> (mean.val[2]);
 
     double stop = clock();
-    LOGD("大气光: [ %.2f, %.2f, %.2f ]", atmosphericLight[0], atmosphericLight[1], atmosphericLight[2]);
+    LOGD("大气光: [ %d, %d, %d ]", atmosphericLight[0], atmosphericLight[1], atmosphericLight[2]);
     LOGD("估计大气光耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     return atmosphericLight;
@@ -165,7 +165,7 @@ cv::Mat DeHaze::estimateTransmission(){
     return transmission;
 }
 
-cv::Vec3f DeHaze::estimateAtmosphericLightVideo(){
+cv::Vec3i DeHaze::estimateAtmosphericLightVideo(){
     double start = clock();
 
     atmosphericLight = estimateAtmosphericLight();
@@ -201,11 +201,14 @@ cv::Mat DeHaze::recover(){
 
     start = clock();
 
-    origRgbaChannels[0] = (origRgbaChannels[0]-atmosphericLight[0])/transmission + atmosphericLight[0];
-    origRgbaChannels[1] = (origRgbaChannels[1]-atmosphericLight[1])/transmission + atmosphericLight[1];
-    origRgbaChannels[2] = (origRgbaChannels[2]-atmosphericLight[2])/transmission + atmosphericLight[2];
+    vector<Mat> channels;
+    split(origRgba,channels);
 
-    merge(origRgbaChannels,recoverMat);
+    channels[0] = (channels[0]-atmosphericLight[0])/transmission + atmosphericLight[0];
+    channels[1] = (channels[1]-atmosphericLight[1])/transmission + atmosphericLight[1];
+    channels[2] = (channels[2]-atmosphericLight[2])/transmission + atmosphericLight[2];
+
+    merge(channels,recoverMat);
 
     stop = clock();
     LOGD("粗略恢复图像耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
@@ -240,16 +243,8 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
     } else{
 
     }
-
     stop = clock();
     LOGD("yuv 转换为 rgba 耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
-
-    start = clock();
-    if (origRgba.depth() != CV_32F){
-        origRgba.convertTo(origRgba, CV_32F);
-    }
-    stop = clock();
-    LOGD("转换原图片深度耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
 
     start = clock();
     split(origRgba,origRgbaChannels);
@@ -265,6 +260,14 @@ void DeHaze::preProcessOrigFrame(jbyte* const data, int format, int width, int h
     darkChannel = calcDarkChannel(minChannel, r);
     stop = clock();
     LOGD("计算暗通道道耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
+    start = clock();
+    if (origRgba.depth() != CV_32F){
+        origRgba.convertTo(origRgba, CV_32F);
+    }
+    stop = clock();
+    LOGD("转换原图片深度耗时：%.2f ms", (stop-start)/CLOCKS_PER_SEC*1000);
+
 }
 
 void DeHaze::initGammaLookUpTable(double gamma){

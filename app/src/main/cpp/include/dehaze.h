@@ -35,11 +35,11 @@ public:
     void setFPS(int fps);
 
 private:
-    cv::Vec3f estimateAtmosphericLight();
+    cv::Vec3i estimateAtmosphericLight();
 
     cv::Mat estimateTransmission();
 
-    cv::Vec3f estimateAtmosphericLightVideo();
+    cv::Vec3i estimateAtmosphericLightVideo();
 
     cv::Mat estimateTransmissionVideo();
 
@@ -63,13 +63,13 @@ private:
     std::vector<cv::Mat> origRgbaChannels;
     cv::Mat minChannel;
     cv::Mat darkChannel;
-    cv::Vec3f atmosphericLight = cv::Vec3f(0,0,0);
+    cv::Vec3i atmosphericLight;
     cv::Mat transmission;
     cv::Mat recoverMat;
 
     //video
-    cv::Vec3f atmosphericLightSum;
-    std::queue<cv::Vec3f> atmosphericLightQueue;
+    cv::Vec3i atmosphericLightSum;
+    std::queue<cv::Vec3i> atmosphericLightQueue;
 
     int fps;
     int width;
