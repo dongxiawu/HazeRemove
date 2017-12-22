@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CompoundButton;
+import android.widget.ImageButton;
 import android.widget.Switch;
 
 import org.opencv.core.Mat;
@@ -40,11 +41,13 @@ public class CameraFragment extends Fragment {
 
     private View mSettingPanel;
 
+    private ImageButton mSettingsButton;
+
     private DeHaze mDeHaze;
 
     private boolean mDehazeSwitch;
 
-    private boolean mShowSettingPanel;
+    private boolean mShowSettingsPanel;
 
     public static CameraFragment newInstance(){
         return new CameraFragment();
@@ -52,11 +55,13 @@ public class CameraFragment extends Fragment {
 
     @Override
     public void onAttach(Context context) {
+        Log.d(TAG, "onAttach: ");
         super.onAttach(context);
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate: ");
         super.onCreate(savedInstanceState);
     }
 
@@ -64,23 +69,27 @@ public class CameraFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView: ");
         View view = inflater.inflate(R.layout.fragment_camera, container, false);
         return view;
     }
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onViewCreated: ");
         initView(view);
     }
 
 
     @Override
     public void onStart() {
+        Log.d(TAG, "onStart: ");
         super.onStart();
     }
 
     @Override
     public void onResume() {
+        Log.d(TAG, "onResume: ");
         super.onResume();
         if (!checkCameraPermission()){
             requestCameraPermission();
@@ -91,11 +100,16 @@ public class CameraFragment extends Fragment {
         mCameraView.setCameraViewListener(new AbsCameraBridgeView.CameraViewListener() {
             @Override
             public void onCameraViewStarted(int width, int height) {
+                Log.d(TAG, "onCameraViewStarted: ");
+                if (mDeHaze != null){
+                    mDeHaze.release();
+                }
                 mDeHaze = new DeHaze(7,0.1,0.95,10E-6,width,height);
             }
 
             @Override
             public void onCameraViewStopped() {
+                Log.d(TAG, "onCameraViewStopped: ");
                 mDeHaze.release();
                 mDeHaze = null;
             }
@@ -120,28 +134,31 @@ public class CameraFragment extends Fragment {
 
     @Override
     public void onStop() {
+        Log.d(TAG, "onStop: ");
         super.onStop();
     }
 
     @Override
     public void onDestroyView() {
+        Log.d(TAG, "onDestroyView: ");
         super.onDestroyView();
     }
 
     @Override
     public void onDestroy() {
+        Log.d(TAG, "onDestroy: ");
         super.onDestroy();
     }
 
     private void initView(View root){
         mCameraView = (CameraPreview) root.findViewById(R.id.camera_view);
         mCameraView.setMaxFrameSize(1920/2,1080/2);
-        mSettingPanel = (View) root.findViewById(R.id.setting_panel);
+        mSettingPanel = (View) root.findViewById(R.id.settings_panel);
         mCameraView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mShowSettingPanel = !mShowSettingPanel;
-                if (mShowSettingPanel){
+                mShowSettingsPanel = !mShowSettingsPanel;
+                if (mShowSettingsPanel){
                     mSettingPanel.setVisibility(View.VISIBLE);
                 }else {
                     mSettingPanel.setVisibility(View.GONE);
@@ -154,6 +171,15 @@ public class CameraFragment extends Fragment {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 mDehazeSwitch = isChecked;
+            }
+        });
+
+        mSettingsButton = (ImageButton)root.findViewById(R.id.settings);
+        mSettingsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                getFragmentManager().beginTransaction().addToBackStack(TAG)
+                        .replace(R.id.frame_layout,SettingsFragment.newInstance()).commit();
             }
         });
     }

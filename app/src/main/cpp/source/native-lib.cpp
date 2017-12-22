@@ -12,17 +12,10 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1createHa
         (JNIEnv *, jclass, jint r, jdouble t0, jdouble omega, jdouble eps, jint width, jint height){
     if (deHaze != NULL){
         delete deHaze;
+        deHaze = NULL;
     }
     deHaze = new DeHaze(r, t0, omega, eps, width, height);
     deHaze->setFPS(15);
-}
-
-
-JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_CameraFragment_nativeDeleteHazeRemoveModel
-        (JNIEnv *, jobject){
-    if (deHaze != NULL){
-        delete deHaze;
-    }
 }
 
 /*
@@ -62,6 +55,7 @@ JNIEXPORT void JNICALL Java_cn_scut_dongxia_hazeremove_dehaze_DeHaze_n_1deleteHa
         (JNIEnv *, jclass){
     if (deHaze != NULL){
         delete deHaze;
+        deHaze = NULL;
     }
 }
 

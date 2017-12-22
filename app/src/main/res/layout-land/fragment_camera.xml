@@ -13,27 +13,20 @@
         app:camera_id="back"
         android:layout_alignParentStart="true"/>
 
+    <Switch
+        android:id="@+id/dehaze_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:padding="20dp"/>
 
-
-    <LinearLayout
-        android:id="@+id/setting_panel"
+    <include
+        android:id="@+id/settings_panel"
+        android:visibility="gone"
+        layout="@layout/settings_panel"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:alpha="0.5"
-        android:visibility="gone">
-
-        <Button
-            android:id="@+id/settings"
-            android:text="设置"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <Switch
-            android:id="@+id/dehaze_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:padding="20dp"/>
-    </LinearLayout>
+        android:layout_alignParentEnd="true"/>
 </RelativeLayout>

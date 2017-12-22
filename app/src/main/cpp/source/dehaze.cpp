@@ -92,7 +92,7 @@ cv::Mat DeHaze::videoHazeRemove(jbyte* data, int format, int width, int height){
 cv::Mat DeHaze::videoHazeRemove(jbyte* data, int format){
     preProcessOrigFrame(data, format, width, height);
 
-    estimateAtmosphericLightVideo();
+//    estimateAtmosphericLightVideo();
     estimateTransmissionVideo();
     return recover();
 }
@@ -140,9 +140,10 @@ cv::Mat DeHaze::estimateTransmission(){
     double start;
     double stop;
 
-    int yLight = ((atmosphericLight[0]*66 + atmosphericLight[1]*129
-                   + atmosphericLight[2]*25 +128) >>8) + 16;
-    Mat yNormalized = origY*255/yLight;
+//    int yLight = ((atmosphericLight[0]*66 + atmosphericLight[1]*129
+//                   + atmosphericLight[2]*25 +128) >>8) + 16;
+//    Mat yNormalized = origY*255/yLight;
+    Mat yNormalized = origY;
 //
 //    Mat yNormalized = origY/(atmosphericLight[0]*0.299 +
 //            atmosphericLight[1]*0.587 + atmosphericLight[2]*0.114);
@@ -210,9 +211,13 @@ cv::Mat DeHaze::recover(){
     vector<Mat> channels;
     split(origRgba,channels);
 
-    channels[0] = (channels[0]-atmosphericLight[0])/transmission + atmosphericLight[0];
-    channels[1] = (channels[1]-atmosphericLight[1])/transmission + atmosphericLight[1];
-    channels[2] = (channels[2]-atmosphericLight[2])/transmission + atmosphericLight[2];
+//    channels[0] = (channels[0]-atmosphericLight[0])/transmission + atmosphericLight[0];
+//    channels[1] = (channels[1]-atmosphericLight[1])/transmission + atmosphericLight[1];
+//    channels[2] = (channels[2]-atmosphericLight[2])/transmission + atmosphericLight[2];
+
+    channels[0] = (channels[0]-255)/transmission + 255;
+    channels[1] = (channels[1]-255)/transmission + 255;
+    channels[2] = (channels[2]-255)/transmission + 255;
 
     merge(channels,recoverMat);
 
