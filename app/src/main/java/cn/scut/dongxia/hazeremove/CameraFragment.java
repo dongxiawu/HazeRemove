@@ -38,9 +38,13 @@ public class CameraFragment extends Fragment {
 
     private Switch mSwitch;
 
+    private View mSettingPanel;
+
     private DeHaze mDeHaze;
 
     private boolean mDehazeSwitch;
+
+    private boolean mShowSettingPanel;
 
     public static CameraFragment newInstance(){
         return new CameraFragment();
@@ -132,6 +136,18 @@ public class CameraFragment extends Fragment {
     private void initView(View root){
         mCameraView = (CameraPreview) root.findViewById(R.id.camera_view);
         mCameraView.setMaxFrameSize(1920/2,1080/2);
+        mSettingPanel = (View) root.findViewById(R.id.setting_panel);
+        mCameraView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mShowSettingPanel = !mShowSettingPanel;
+                if (mShowSettingPanel){
+                    mSettingPanel.setVisibility(View.VISIBLE);
+                }else {
+                    mSettingPanel.setVisibility(View.GONE);
+                }
+            }
+        });
         mSwitch = (Switch) root.findViewById(R.id.dehaze_switch);
         mDehazeSwitch = mSwitch.isChecked();
         mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
